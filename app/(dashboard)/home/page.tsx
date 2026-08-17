@@ -1,50 +1,46 @@
-const queue = [
-  {
-    time: "9:00 am",
-    text: "Pineapple on pizza should be a federal crime.",
-  },
-  {
-    time: "12:30 pm",
-    text: "Your morning routine is a personality disorder.",
-  },
-  {
-    time: "4:00 pm",
-    text: "Phones were better when they couldn't do anything.",
-  },
-  {
-    time: "7:15 pm",
-    text: "That team you love? Overrated. Always was.",
-  },
-];
+"use client";
+
+import { useEffect, useState } from "react";
 
 export default function HomePage() {
-  return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight">Home</h1>
-      <p className="mt-2 text-muted-foreground">
-        Write the bait, drop it in the queue, let the comments do the rest.
-      </p>
+  const [accounts, setAccounts] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-      <div className="mt-8 rounded-xl border border-black/10 p-4">
-        <p className="text-sm text-muted-foreground">Composer</p>
-        <p className="mt-3 min-h-24 text-foreground/40">
-          What would you like to share?
-        </p>
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <span>0 / 280</span>
-          <span>Add to queue</span>
+  useEffect(() => {
+    fetch("/api/home")
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          accounts?: number;
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load home.");
+        }
+        setAccounts(data.accounts ?? 0);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Could not load home.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <h1 className="text-2xl font-semibold tracking-tight">Home</h1>
+
+      {error ? (
+        <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+      ) : null}
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-xl border border-black/10 p-4">
+          <p className="text-sm text-muted-foreground">Accounts</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight">
+            {loading ? "—" : accounts ?? "—"}
+          </p>
         </div>
       </div>
-
-      <h2 className="mt-10 text-sm text-muted-foreground">Upcoming</h2>
-      <ul className="mt-3 divide-y divide-black/10 border-y border-black/10">
-        {queue.map((item) => (
-          <li key={item.time} className="flex gap-6 py-4">
-            <span className="w-24 shrink-0 text-sm text-muted-foreground">{item.time}</span>
-            <span>{item.text}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

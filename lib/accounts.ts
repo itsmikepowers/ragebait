@@ -121,6 +121,21 @@ export async function listAccounts(): Promise<Account[]> {
   return docs.map(toAccount);
 }
 
+export async function countAccounts(): Promise<number> {
+  const collection = await accountsCollection();
+  return collection.countDocuments();
+}
+
+export async function getAccount(rawId: string): Promise<Account | null> {
+  const id = parseId(rawId);
+  if (!id) {
+    return null;
+  }
+  const collection = await accountsCollection();
+  const doc = await collection.findOne({ _id: id });
+  return doc ? toAccount(doc) : null;
+}
+
 export async function createAccount(fields: AccountFields): Promise<Account> {
   const account = parseFields(fields);
   const now = new Date();
@@ -176,6 +191,17 @@ export async function deleteAccount(rawId: string): Promise<void> {
   const id = parseId(rawId);
   if (!id) {
     throw new AccountError("Account not found.", 404);
+  }
+
+  const db = await getDb();
+  const scheduledCount = await db
+    .collection("schedule")
+    .countDocuments({ accountId: id });
+  if (scheduledCount > 0) {
+    throw new AccountError(
+      "Remove this account's scheduled items first.",
+      409,
+    );
   }
 
   const collection = await accountsCollection();
