@@ -57,6 +57,21 @@ const emptyDraft: ScheduleDraft = {
   file: null,
 };
 
+const MP4_MAX_BYTES = 100 * 1024 * 1024;
+
+async function readApiJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      response.status === 413
+        ? "That video is too large."
+        : "Could not add that item.",
+    );
+  }
+}
+
 function selectedDateToUtcDay(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -187,6 +202,7 @@ function FileDrop({
         <>
           <LuUpload size={20} className="text-muted-foreground" aria-hidden />
           <p className="mt-2 text-sm">Drop an MP4 here, or click to pick one</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Up to 100 MB</p>
         </>
       )}
     </label>
@@ -273,20 +289,57 @@ export default function SchedulePage() {
       setError("Upload an MP4.");
       return;
     }
+    if (!draft.file.name.toLowerCase().endsWith(".mp4")) {
+      setError("Upload an MP4.");
+      return;
+    }
+    if (draft.file.size > MP4_MAX_BYTES) {
+      setError("That video is too large.");
+      return;
+    }
     setSaving(true);
-    const body = new FormData();
-    body.set("accountId", draft.accountId);
-    body.set("scheduledDate", selectedDateToUtcDay(draft.scheduledDate));
-    body.set("file", draft.file);
     try {
+      const uploadResponse = await fetch("/api/schedule/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          size: draft.file.size,
+          contentType: draft.file.type || "video/mp4",
+        }),
+      });
+      const uploadData = await readApiJson<{
+        path?: string;
+        uploadUrl?: string;
+        error?: string;
+      }>(uploadResponse);
+      if (!uploadResponse.ok || !uploadData.path || !uploadData.uploadUrl) {
+        setError(uploadData.error || "Could not add that item.");
+        return;
+      }
+
+      const putResponse = await fetch(uploadData.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "video/mp4" },
+        body: draft.file,
+      });
+      if (!putResponse.ok) {
+        setError("Could not upload that video.");
+        return;
+      }
+
       const response = await fetch("/api/schedule", {
         method: "POST",
-        body,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: draft.accountId,
+          scheduledDate: selectedDateToUtcDay(draft.scheduledDate),
+          path: uploadData.path,
+        }),
       });
-      const data = (await response.json()) as {
+      const data = await readApiJson<{
         item?: ScheduledItem;
         error?: string;
-      };
+      }>(response);
       if (!response.ok || !data.item) {
         setError(data.error || "Could not add that item.");
         return;
@@ -377,7 +430,7 @@ export default function SchedulePage() {
             <DialogHeader>
               <DialogTitle>Add scheduled item</DialogTitle>
               <DialogDescription>
-                Pick an account, a date, and upload an MP4.
+                Pick an account, a date, and upload an MP4 up to 100 MB.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={onAdd} className="grid gap-4">

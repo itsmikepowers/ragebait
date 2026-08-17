@@ -4,7 +4,9 @@ import { getAccount, getAccountByUsername } from "./accounts";
 import { buildCdnUrl } from "./cdn";
 import {
   deleteFileFromCloudflare,
-  uploadFileToCloudflare,
+  createPresignedR2PutUrl,
+  ensureR2BrowserUploadCors,
+  r2ObjectExists,
 } from "./cloudflare";
 import { getDb } from "./mongodb";
 
@@ -34,6 +36,8 @@ type ScheduledItemDoc = {
 
 const VIDEO_FOLDER = "schedule";
 const MP4_MAX_BYTES = 100 * 1024 * 1024;
+const SCHEDULE_PATH_RE =
+  /^schedule\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.mp4$/i;
 
 export class ScheduleError extends Error {
   status: number;
@@ -106,16 +110,14 @@ async function parseScheduleFields(
   return { accountId, scheduledDate };
 }
 
-function isMp4(file: File): boolean {
-  const name = file.name.toLowerCase();
-  if (!name.endsWith(".mp4")) {
-    return false;
+function isAllowedVideoType(value: unknown): boolean {
+  if (value == null || value === "") {
+    return true;
   }
   return (
-    !file.type ||
-    file.type === "video/mp4" ||
-    file.type === "application/mp4" ||
-    file.type === "application/octet-stream"
+    value === "video/mp4" ||
+    value === "application/mp4" ||
+    value === "application/octet-stream"
   );
 }
 
@@ -188,40 +190,56 @@ export async function finalizeTodaysPublicPost(
   return { status: "okay" };
 }
 
+export async function createScheduleUpload(
+  sizeValue: unknown,
+  contentTypeValue: unknown,
+): Promise<{ path: string; uploadUrl: string }> {
+  const size =
+    typeof sizeValue === "number"
+      ? sizeValue
+      : typeof sizeValue === "string"
+        ? Number(sizeValue)
+        : NaN;
+  if (!Number.isFinite(size) || size <= 0) {
+    throw new ScheduleError("Upload an MP4.", 400);
+  }
+  if (size > MP4_MAX_BYTES) {
+    throw new ScheduleError("That video is too large.", 400);
+  }
+  if (!isAllowedVideoType(contentTypeValue)) {
+    throw new ScheduleError("Upload an MP4.", 400);
+  }
+
+  await ensureR2BrowserUploadCors();
+  const path = `${VIDEO_FOLDER}/${randomUUID()}.mp4`;
+  return {
+    path,
+    uploadUrl: createPresignedR2PutUrl(path, "video/mp4"),
+  };
+}
+
 export async function createScheduledItem(
-  file: File | null,
   scheduledDateValue: unknown,
   accountIdValue: unknown,
+  pathValue: unknown,
 ): Promise<ScheduledItem> {
   const { accountId, scheduledDate } = await parseScheduleFields(
     accountIdValue,
     scheduledDateValue,
   );
-  if (!file) {
+  if (typeof pathValue !== "string" || !SCHEDULE_PATH_RE.test(pathValue)) {
     throw new ScheduleError("Upload an MP4.", 400);
   }
-  if (!isMp4(file)) {
-    throw new ScheduleError("Upload an MP4.", 400);
+  if (!(await r2ObjectExists(pathValue))) {
+    throw new ScheduleError("Could not upload that video.", 400);
   }
-  if (file.size > MP4_MAX_BYTES) {
-    throw new ScheduleError("That video is too large.", 400);
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const fileName = `${randomUUID()}.mp4`;
-  const { path } = await uploadFileToCloudflare(
-    buffer,
-    VIDEO_FOLDER,
-    fileName,
-    "video/mp4",
-  );
 
   const now = new Date();
   try {
     const collection = await scheduleCollection();
     const result = await collection.insertOne({
       accountId,
-      path,
+      path: pathValue,
       scheduledDate,
       posted: false,
       createdAt: now,
@@ -230,12 +248,12 @@ export async function createScheduledItem(
     return {
       id: result.insertedId.toHexString(),
       accountId: accountId.toHexString(),
-      path,
+      path: pathValue,
       scheduledDate: scheduledDate.toISOString(),
       posted: false,
     };
   } catch (error) {
-    await deleteFileFromCloudflare(path).catch(() => undefined);
+    await deleteFileFromCloudflare(pathValue).catch(() => undefined);
     throw error;
   }
 }

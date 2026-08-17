@@ -1,8 +1,4 @@
-import {
-  ScheduleError,
-  createScheduledItem,
-  listScheduledItems,
-} from "@/lib/schedule";
+import { ScheduleError, createScheduleUpload } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -21,24 +17,11 @@ function errorResponse(error: unknown) {
   return Response.json({ error: "Could not reach the database." }, { status: 500 });
 }
 
-export async function GET() {
-  try {
-    const items = await listScheduledItems();
-    return Response.json({ items });
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const item = await createScheduledItem(
-      body?.scheduledDate,
-      body?.accountId,
-      body?.path,
-    );
-    return Response.json({ item }, { status: 201 });
+    const upload = await createScheduleUpload(body?.size, body?.contentType);
+    return Response.json(upload);
   } catch (error) {
     if (error instanceof SyntaxError) {
       return Response.json({ error: "Upload an MP4." }, { status: 400 });

@@ -79,16 +79,42 @@ function encodeR2ObjectKey(key: string): string {
     .join("/");
 }
 
+function encodeRfc3986(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+function r2CanonicalPath(bucketName: string, objectKey: string): string {
+  if (!objectKey) {
+    return `/${bucketName}`;
+  }
+  return `/${bucketName}/${encodeR2ObjectKey(objectKey)}`;
+}
+
+function canonicalQueryString(query: Record<string, string> = {}): string {
+  return Object.keys(query)
+    .sort()
+    .map((key) => `${encodeRfc3986(key)}=${encodeRfc3986(query[key])}`)
+    .join("&");
+}
+
+function r2Host(config: CloudflareConfig): string {
+  return `${config.accountId}.r2.cloudflarestorage.com`;
+}
+
 async function signedR2Request(
   config: CloudflareConfig,
-  method: "PUT" | "DELETE",
+  method: "PUT" | "DELETE" | "HEAD",
   objectKey: string,
   body?: Buffer,
   extraHeaders?: Record<string, string>,
+  query?: Record<string, string>,
 ): Promise<Response> {
-  const host = `${config.accountId}.r2.cloudflarestorage.com`;
-  const encodedKey = encodeR2ObjectKey(objectKey);
-  const url = `https://${host}/${config.bucketName}/${encodedKey}`;
+  const host = r2Host(config);
+  const canonicalPath = r2CanonicalPath(config.bucketName, objectKey);
+  const queryString = canonicalQueryString(query);
+  const url = `https://${host}${canonicalPath}${queryString ? `?${queryString}` : ""}`;
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.slice(0, 8);
@@ -109,8 +135,8 @@ async function signedR2Request(
 
   const canonicalRequest = [
     method,
-    `/${config.bucketName}/${encodedKey}`,
-    "",
+    canonicalPath,
+    queryString,
     canonicalHeaders,
     signedHeaders,
     payloadHash,
@@ -257,5 +283,111 @@ export async function deleteFileFromCloudflare(path: string): Promise<void> {
   if (!response.ok && response.status !== 404) {
     const errorText = await response.text().catch(() => response.statusText);
     throw new Error(`Cloudflare delete failed: ${errorText}`);
+  }
+}
+
+const PRESIGNED_PUT_EXPIRES_SECONDS = 15 * 60;
+
+export function createPresignedR2PutUrl(
+  objectKey: string,
+  contentType: string,
+  expiresSeconds = PRESIGNED_PUT_EXPIRES_SECONDS,
+): string {
+  const config = getCloudflareConfig();
+  const host = r2Host(config);
+  const canonicalPath = r2CanonicalPath(config.bucketName, objectKey);
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = `${dateStamp}/${R2_REGION}/${R2_SERVICE}/aws4_request`;
+  const signedHeaders = "content-type;host";
+  const query = {
+    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+    "X-Amz-Credential": `${config.accessKeyId}/${credentialScope}`,
+    "X-Amz-Date": amzDate,
+    "X-Amz-Expires": String(expiresSeconds),
+    "X-Amz-SignedHeaders": signedHeaders,
+  };
+  const queryString = canonicalQueryString(query);
+  const canonicalRequest = [
+    "PUT",
+    canonicalPath,
+    queryString,
+    `content-type:${contentType}\nhost:${host}\n`,
+    signedHeaders,
+    "UNSIGNED-PAYLOAD",
+  ].join("\n");
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    sha256Hex(canonicalRequest),
+  ].join("\n");
+  const signingKey = getSignatureKey(
+    config.secretAccessKey,
+    dateStamp,
+    R2_REGION,
+    R2_SERVICE,
+  );
+  const signature = createHmac("sha256", signingKey)
+    .update(stringToSign)
+    .digest("hex");
+  return `https://${host}${canonicalPath}?${queryString}&X-Amz-Signature=${signature}`;
+}
+
+export async function r2ObjectExists(path: string): Promise<boolean> {
+  const config = getCloudflareConfig();
+  const response = await signedR2Request(config, "HEAD", path);
+  if (response.ok) {
+    return true;
+  }
+  if (response.status === 404) {
+    return false;
+  }
+  const errorText = await response.text().catch(() => response.statusText);
+  throw new Error(`Cloudflare HEAD failed: ${errorText}`);
+}
+
+let corsReady: Promise<void> | null = null;
+
+export async function ensureR2BrowserUploadCors(): Promise<void> {
+  if (!corsReady) {
+    corsReady = putR2BrowserUploadCors().catch((error) => {
+      corsReady = null;
+      console.error(error);
+    });
+  }
+  await corsReady;
+}
+
+async function putR2BrowserUploadCors(): Promise<void> {
+  const config = getCloudflareConfig();
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>PUT</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+    <MaxAgeSeconds>86400</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>`;
+  const body = Buffer.from(xml, "utf8");
+  const response = await signedR2Request(
+    config,
+    "PUT",
+    "",
+    body,
+    {
+      "content-md5": createHash("md5").update(body).digest("base64"),
+      "content-type": "application/xml",
+    },
+    { cors: "" },
+  );
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => response.statusText);
+    throw new Error(`Cloudflare CORS update failed: ${errorText}`);
   }
 }
