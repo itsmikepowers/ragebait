@@ -136,6 +136,18 @@ export async function getAccount(rawId: string): Promise<Account | null> {
   return doc ? toAccount(doc) : null;
 }
 
+export async function getAccountByUsername(
+  rawUsername: string,
+): Promise<Account | null> {
+  const username = normalizeUsername(rawUsername);
+  if (!username) {
+    return null;
+  }
+  const collection = await accountsCollection();
+  const doc = await collection.findOne({ username });
+  return doc ? toAccount(doc) : null;
+}
+
 export async function createAccount(fields: AccountFields): Promise<Account> {
   const account = parseFields(fields);
   const now = new Date();

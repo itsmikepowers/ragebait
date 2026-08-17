@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { ObjectId, type Collection } from "mongodb";
-import { getAccount } from "./accounts";
+import { getAccount, getAccountByUsername } from "./accounts";
+import { buildCdnUrl } from "./cdn";
 import {
   deleteFileFromCloudflare,
   uploadFileToCloudflare,
@@ -12,6 +13,13 @@ export type ScheduledItem = {
   accountId: string;
   path: string;
   scheduledDate: string;
+  posted: boolean;
+};
+
+export type PublicScheduledPost = {
+  username: string;
+  date: string;
+  url: string | null;
   posted: boolean;
 };
 
@@ -120,6 +128,64 @@ export async function listScheduledItems(): Promise<ScheduledItem[]> {
   const collection = await scheduleCollection();
   const docs = await collection.find().sort({ scheduledDate: 1, createdAt: 1 }).toArray();
   return docs.map(toScheduledItem);
+}
+
+function utcDayStart(date = new Date()): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+async function findTodaysScheduledDoc(rawUsername: string) {
+  const account = await getAccountByUsername(rawUsername);
+  if (!account) {
+    throw new ScheduleError("Account not found.", 404);
+  }
+
+  const accountId = parseId(account.id);
+  if (!accountId) {
+    throw new ScheduleError("Account not found.", 404);
+  }
+
+  const scheduledDate = utcDayStart();
+  const collection = await scheduleCollection();
+  const doc = await collection.findOne(
+    { accountId, scheduledDate },
+    { sort: { createdAt: 1 } },
+  );
+  if (!doc) {
+    throw new ScheduleError("No scheduled post for today.", 404);
+  }
+
+  return { account, collection, doc };
+}
+
+export async function getTodaysPublicPost(
+  rawUsername: string,
+): Promise<PublicScheduledPost> {
+  const { account, doc } = await findTodaysScheduledDoc(rawUsername);
+  const item = toScheduledItem(doc);
+  return {
+    username: account.username,
+    date: item.scheduledDate.slice(0, 10),
+    url: buildCdnUrl(item.path),
+    posted: item.posted,
+  };
+}
+
+export async function finalizeTodaysPublicPost(
+  rawUsername: string,
+): Promise<{ status: "okay" | "already posted" }> {
+  const { collection, doc } = await findTodaysScheduledDoc(rawUsername);
+  if (doc.posted === true) {
+    return { status: "already posted" };
+  }
+
+  await collection.updateOne(
+    { _id: doc._id },
+    { $set: { posted: true, updatedAt: new Date() } },
+  );
+  return { status: "okay" };
 }
 
 export async function createScheduledItem(
