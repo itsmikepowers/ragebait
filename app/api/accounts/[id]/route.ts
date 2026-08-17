@@ -21,11 +21,11 @@ export async function PATCH(
   try {
     const { id } = await ctx.params;
     const body = await request.json();
-    const account = await updateAccount(id, body?.name);
+    const account = await updateAccount(id, body ?? {});
     return Response.json({ account });
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return Response.json({ error: "Enter an account name." }, { status: 400 });
+      return Response.json({ error: "Enter a name and username." }, { status: 400 });
     }
     return errorResponse(error);
   }

@@ -1,0 +1,12 @@
+---
+description: Dialogs close without clearing their content or selected item
+alwaysApply: true
+---
+
+# Dialog close behavior
+
+Control every dialog with a boolean `open` state. Closing must only set that boolean to `false`.
+
+Do not set the selected item, form draft, or other dialog content to `null` or empty when the dialog closes. Keep that data so the content stays visible through the close animation.
+
+Reset or replace content when opening a dialog for a new item, or after a successful submit — not on close.

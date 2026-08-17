@@ -26,11 +26,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const account = await createAccount(body?.name);
+    const account = await createAccount(body ?? {});
     return Response.json({ account }, { status: 201 });
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return Response.json({ error: "Enter an account name." }, { status: 400 });
+      return Response.json({ error: "Enter a name and username." }, { status: 400 });
     }
     return errorResponse(error);
   }

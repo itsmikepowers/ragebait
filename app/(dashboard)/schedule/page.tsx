@@ -11,8 +11,8 @@ const days = [
 export default function SchedulePage() {
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl tracking-tight">Schedule</h1>
-      <p className="mt-2 text-muted">
+      <h1 className="text-2xl font-semibold tracking-tight">Schedule</h1>
+      <p className="mt-2 text-muted-foreground">
         These are the slots the queue fills. Empty times stay empty.
       </p>
 
@@ -20,7 +20,7 @@ export default function SchedulePage() {
         {days.map((row) => (
           <li key={row.day} className="flex items-baseline gap-8 py-4">
             <span className="w-28 shrink-0">{row.day}</span>
-            <span className="text-muted">{row.slots.join("  ·  ")}</span>
+            <span className="text-muted-foreground">{row.slots.join("  ·  ")}</span>
           </li>
         ))}
       </ul>

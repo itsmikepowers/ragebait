@@ -59,7 +59,7 @@ export default function PasswordPage() {
         <button type="submit" className="bg-black px-3 py-2 text-sm text-white">
           Continue
         </button>
-        {error ? <p className="text-sm text-muted">{error}</p> : null}
+        {error ? <p className="text-sm text-muted-foreground">{error}</p> : null}
       </form>
     </div>
   );

@@ -14,7 +14,7 @@ const jersey = Jersey_10({
 });
 
 export const metadata: Metadata = {
-  title: "RageBait",
+  title: "ragebait",
   description: "We make you mad.",
 };
 
