@@ -105,7 +105,7 @@ function r2Host(config: CloudflareConfig): string {
 
 async function signedR2Request(
   config: CloudflareConfig,
-  method: "PUT" | "DELETE" | "HEAD",
+  method: "PUT" | "POST" | "DELETE" | "HEAD",
   objectKey: string,
   body?: Buffer,
   extraHeaders?: Record<string, string>,
@@ -290,7 +290,7 @@ const PRESIGNED_PUT_EXPIRES_SECONDS = 15 * 60;
 
 export function createPresignedR2PutUrl(
   objectKey: string,
-  contentType: string,
+  extraQuery: Record<string, string> = {},
   expiresSeconds = PRESIGNED_PUT_EXPIRES_SECONDS,
 ): string {
   const config = getCloudflareConfig();
@@ -300,8 +300,9 @@ export function createPresignedR2PutUrl(
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
   const dateStamp = amzDate.slice(0, 8);
   const credentialScope = `${dateStamp}/${R2_REGION}/${R2_SERVICE}/aws4_request`;
-  const signedHeaders = "content-type;host";
+  const signedHeaders = "host";
   const query = {
+    ...extraQuery,
     "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
     "X-Amz-Credential": `${config.accessKeyId}/${credentialScope}`,
     "X-Amz-Date": amzDate,
@@ -313,7 +314,7 @@ export function createPresignedR2PutUrl(
     "PUT",
     canonicalPath,
     queryString,
-    `content-type:${contentType}\nhost:${host}\n`,
+    `host:${host}\n`,
     signedHeaders,
     "UNSIGNED-PAYLOAD",
   ].join("\n");
@@ -346,6 +347,80 @@ export async function r2ObjectExists(path: string): Promise<boolean> {
   }
   const errorText = await response.text().catch(() => response.statusText);
   throw new Error(`Cloudflare HEAD failed: ${errorText}`);
+}
+
+function xmlTag(xml: string, tag: string): string | null {
+  const match = new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml);
+  return match?.[1] ?? null;
+}
+
+export async function createMultipartUpload(
+  path: string,
+  contentType: string,
+): Promise<string> {
+  const config = getCloudflareConfig();
+  const response = await signedR2Request(
+    config,
+    "POST",
+    path,
+    undefined,
+    { "content-type": contentType },
+    { uploads: "" },
+  );
+  const xml = await response.text().catch(() => "");
+  if (!response.ok) {
+    throw new Error(`Cloudflare multipart start failed: ${xml || response.statusText}`);
+  }
+  const uploadId = xmlTag(xml, "UploadId");
+  if (!uploadId) {
+    throw new Error("Cloudflare multipart start failed: missing UploadId");
+  }
+  return uploadId;
+}
+
+export async function completeMultipartUpload(
+  path: string,
+  uploadId: string,
+  parts: { partNumber: number; etag: string }[],
+): Promise<void> {
+  const config = getCloudflareConfig();
+  const body = Buffer.from(
+    `<CompleteMultipartUpload>${parts
+      .map((part) => {
+        const etag = part.etag.trim().startsWith('"')
+          ? part.etag.trim()
+          : `"${part.etag.trim()}"`;
+        return `<Part><PartNumber>${part.partNumber}</PartNumber><ETag>${etag}</ETag></Part>`;
+      })
+      .join("")}</CompleteMultipartUpload>`,
+    "utf8",
+  );
+  const response = await signedR2Request(
+    config,
+    "POST",
+    path,
+    body,
+    { "content-type": "application/xml" },
+    { uploadId },
+  );
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => response.statusText);
+    throw new Error(`Cloudflare multipart complete failed: ${errorText}`);
+  }
+}
+
+export async function abortMultipartUpload(
+  path: string,
+  uploadId: string,
+): Promise<void> {
+  const config = getCloudflareConfig();
+  const response = await signedR2Request(config, "DELETE", path, undefined, undefined, {
+    uploadId,
+  });
+  if (!response.ok && response.status !== 404) {
+    const errorText = await response.text().catch(() => response.statusText);
+    throw new Error(`Cloudflare multipart abort failed: ${errorText}`);
+  }
 }
 
 let corsReady: Promise<void> | null = null;

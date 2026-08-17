@@ -3,8 +3,11 @@ import { ObjectId, type Collection } from "mongodb";
 import { getAccount, getAccountByUsername } from "./accounts";
 import { buildCdnUrl } from "./cdn";
 import {
-  deleteFileFromCloudflare,
+  abortMultipartUpload,
+  completeMultipartUpload,
+  createMultipartUpload,
   createPresignedR2PutUrl,
+  deleteFileFromCloudflare,
   ensureR2BrowserUploadCors,
   r2ObjectExists,
 } from "./cloudflare";
@@ -36,8 +39,24 @@ type ScheduledItemDoc = {
 
 const VIDEO_FOLDER = "schedule";
 const MP4_MAX_BYTES = 100 * 1024 * 1024;
+const MULTIPART_PART_BYTES = 5 * 1024 * 1024;
 const SCHEDULE_PATH_RE =
   /^schedule\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.mp4$/i;
+
+export type ScheduleUploadPart = {
+  partNumber: number;
+  uploadUrl: string;
+};
+
+export type ScheduleUploadPlan =
+  | { path: string; strategy: "put"; uploadUrl: string }
+  | {
+      path: string;
+      strategy: "multipart";
+      uploadId: string;
+      partSize: number;
+      parts: ScheduleUploadPart[];
+    };
 
 export class ScheduleError extends Error {
   status: number;
@@ -193,7 +212,7 @@ export async function finalizeTodaysPublicPost(
 export async function createScheduleUpload(
   sizeValue: unknown,
   contentTypeValue: unknown,
-): Promise<{ path: string; uploadUrl: string }> {
+): Promise<ScheduleUploadPlan> {
   const size =
     typeof sizeValue === "number"
       ? sizeValue
@@ -212,10 +231,85 @@ export async function createScheduleUpload(
 
   await ensureR2BrowserUploadCors();
   const path = `${VIDEO_FOLDER}/${randomUUID()}.mp4`;
+  if (size <= MULTIPART_PART_BYTES) {
+    return {
+      path,
+      strategy: "put",
+      uploadUrl: createPresignedR2PutUrl(path),
+    };
+  }
+
+  const uploadId = await createMultipartUpload(path, "video/mp4");
+  const partCount = Math.ceil(size / MULTIPART_PART_BYTES);
   return {
     path,
-    uploadUrl: createPresignedR2PutUrl(path, "video/mp4"),
+    strategy: "multipart",
+    uploadId,
+    partSize: MULTIPART_PART_BYTES,
+    parts: Array.from({ length: partCount }, (_, index) => {
+      const partNumber = index + 1;
+      return {
+        partNumber,
+        uploadUrl: createPresignedR2PutUrl(path, {
+          partNumber: String(partNumber),
+          uploadId,
+        }),
+      };
+    }),
   };
+}
+
+function parseSchedulePath(pathValue: unknown): string {
+  if (typeof pathValue !== "string" || !SCHEDULE_PATH_RE.test(pathValue)) {
+    throw new ScheduleError("Upload an MP4.", 400);
+  }
+  return pathValue;
+}
+
+export async function completeScheduleUpload(
+  pathValue: unknown,
+  uploadIdValue: unknown,
+  partsValue: unknown,
+): Promise<{ path: string }> {
+  const path = parseSchedulePath(pathValue);
+  if (typeof uploadIdValue !== "string" || !uploadIdValue) {
+    throw new ScheduleError("Could not upload that video.", 400);
+  }
+  if (!Array.isArray(partsValue) || partsValue.length === 0) {
+    throw new ScheduleError("Could not upload that video.", 400);
+  }
+  const parts = partsValue.map((part) => {
+    if (
+      !part ||
+      typeof part !== "object" ||
+      typeof part.partNumber !== "number" ||
+      !Number.isInteger(part.partNumber) ||
+      part.partNumber < 1 ||
+      typeof part.etag !== "string" ||
+      !part.etag
+    ) {
+      throw new ScheduleError("Could not upload that video.", 400);
+    }
+    return { partNumber: part.partNumber, etag: part.etag };
+  });
+  try {
+    await completeMultipartUpload(path, uploadIdValue, parts);
+  } catch (error) {
+    await abortMultipartUpload(path, uploadIdValue).catch(() => undefined);
+    throw error;
+  }
+  return { path };
+}
+
+export async function abortScheduleUpload(
+  pathValue: unknown,
+  uploadIdValue: unknown,
+): Promise<void> {
+  const path = parseSchedulePath(pathValue);
+  if (typeof uploadIdValue !== "string" || !uploadIdValue) {
+    throw new ScheduleError("Could not upload that video.", 400);
+  }
+  await abortMultipartUpload(path, uploadIdValue);
 }
 
 export async function createScheduledItem(

@@ -58,6 +58,7 @@ const emptyDraft: ScheduleDraft = {
 };
 
 const MP4_MAX_BYTES = 100 * 1024 * 1024;
+const UPLOAD_CONCURRENCY = 6;
 
 async function readApiJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -70,6 +71,142 @@ async function readApiJson<T>(response: Response): Promise<T> {
         : "Could not add that item.",
     );
   }
+}
+
+function putBlob(
+  url: string,
+  blob: Blob,
+  onProgress?: (loaded: number) => void,
+): Promise<{ etag: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(event.loaded);
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ etag: xhr.getResponseHeader("ETag") ?? "" });
+        return;
+      }
+      reject(new Error("Could not upload that video."));
+    };
+    xhr.onerror = () => reject(new Error("Could not upload that video."));
+    xhr.ontimeout = () => reject(new Error("Could not upload that video."));
+    xhr.timeout = 10 * 60 * 1000;
+    xhr.send(blob);
+  });
+}
+
+async function runPool<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function run() {
+    while (true) {
+      const index = next++;
+      if (index >= items.length) {
+        return;
+      }
+      results[index] = await worker(items[index], index);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => run()),
+  );
+  return results;
+}
+
+type UploadPlan = {
+  path?: string;
+  strategy?: "put" | "multipart";
+  uploadUrl?: string;
+  uploadId?: string;
+  partSize?: number;
+  parts?: { partNumber: number; uploadUrl: string }[];
+  error?: string;
+};
+
+async function uploadFileToR2(
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<string> {
+  const uploadResponse = await fetch("/api/schedule/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      size: file.size,
+      contentType: file.type || "video/mp4",
+    }),
+  });
+  const plan = await readApiJson<UploadPlan>(uploadResponse);
+  if (!uploadResponse.ok || !plan.path) {
+    throw new Error(plan.error || "Could not upload that video.");
+  }
+
+  if (plan.strategy === "multipart") {
+    if (!plan.uploadId || !plan.partSize || !plan.parts?.length) {
+      throw new Error("Could not upload that video.");
+    }
+    const loadedByPart = new Array(plan.parts.length).fill(0);
+    try {
+      const completed = await runPool(
+        plan.parts,
+        UPLOAD_CONCURRENCY,
+        async (part, index) => {
+          const start = (part.partNumber - 1) * plan.partSize!;
+          const blob = file.slice(start, Math.min(start + plan.partSize!, file.size));
+          const { etag } = await putBlob(part.uploadUrl, blob, (loaded) => {
+            loadedByPart[index] = loaded;
+            const total = loadedByPart.reduce((sum, value) => sum + value, 0);
+            onProgress(Math.min(100, Math.round((total / file.size) * 100)));
+          });
+          if (!etag) {
+            throw new Error("Could not upload that video.");
+          }
+          return { partNumber: part.partNumber, etag };
+        },
+      );
+      const completeResponse = await fetch("/api/schedule/upload/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: plan.path,
+          uploadId: plan.uploadId,
+          parts: completed,
+        }),
+      });
+      const completeData = await readApiJson<{ path?: string; error?: string }>(
+        completeResponse,
+      );
+      if (!completeResponse.ok || !completeData.path) {
+        throw new Error(completeData.error || "Could not upload that video.");
+      }
+      onProgress(100);
+      return completeData.path;
+    } catch (error) {
+      await fetch("/api/schedule/upload/abort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: plan.path, uploadId: plan.uploadId }),
+      }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  if (!plan.uploadUrl) {
+    throw new Error("Could not upload that video.");
+  }
+  await putBlob(plan.uploadUrl, file, (loaded) => {
+    onProgress(Math.min(100, Math.round((loaded / file.size) * 100)));
+  });
+  onProgress(100);
+  return plan.path;
 }
 
 function selectedDateToUtcDay(date: Date): string {
@@ -222,6 +359,7 @@ export default function SchedulePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -298,42 +436,16 @@ export default function SchedulePage() {
       return;
     }
     setSaving(true);
+    setUploadPercent(0);
     try {
-      const uploadResponse = await fetch("/api/schedule/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          size: draft.file.size,
-          contentType: draft.file.type || "video/mp4",
-        }),
-      });
-      const uploadData = await readApiJson<{
-        path?: string;
-        uploadUrl?: string;
-        error?: string;
-      }>(uploadResponse);
-      if (!uploadResponse.ok || !uploadData.path || !uploadData.uploadUrl) {
-        setError(uploadData.error || "Could not add that item.");
-        return;
-      }
-
-      const putResponse = await fetch(uploadData.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "video/mp4" },
-        body: draft.file,
-      });
-      if (!putResponse.ok) {
-        setError("Could not upload that video.");
-        return;
-      }
-
+      const path = await uploadFileToR2(draft.file, setUploadPercent);
       const response = await fetch("/api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId: draft.accountId,
           scheduledDate: selectedDateToUtcDay(draft.scheduledDate),
-          path: uploadData.path,
+          path,
         }),
       });
       const data = await readApiJson<{
@@ -351,6 +463,7 @@ export default function SchedulePage() {
       setError(err instanceof Error ? err.message : "Could not add that item.");
     } finally {
       setSaving(false);
+      setUploadPercent(0);
     }
   }
 
@@ -469,7 +582,11 @@ export default function SchedulePage() {
                     !draft.file
                   }
                 >
-                  {saving ? "Adding" : "Add"}
+                  {saving
+                    ? uploadPercent > 0 && uploadPercent < 100
+                      ? `Uploading ${uploadPercent}%`
+                      : "Adding"
+                    : "Add"}
                 </Button>
               </DialogFooter>
             </form>
