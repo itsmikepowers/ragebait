@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const item = await createScheduledItem(
       body?.scheduledDate,
       body?.accountId,
-      body?.path,
+      body?.video,
     );
     return Response.json({ item }, { status: 201 });
   } catch (error) {

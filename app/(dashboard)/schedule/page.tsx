@@ -45,10 +45,16 @@ type Account = {
   logo: AccountLogo | null;
 };
 
+type ScheduledVideo = {
+  path: string;
+  width: number;
+  height: number;
+};
+
 type ScheduledItem = {
   id: string;
   accountId: string;
-  path: string;
+  video: ScheduledVideo;
   scheduledDate: string;
   posted: boolean;
 };
@@ -140,10 +146,28 @@ type UploadPlan = {
   error?: string;
 };
 
+function readVideoDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: video.videoWidth, height: video.videoHeight });
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read that video."));
+    };
+    video.src = url;
+  });
+}
+
 async function uploadFileToR2(
   file: File,
   onProgress: (percent: number) => void,
-): Promise<string> {
+): Promise<ScheduledVideo> {
+  const dimensionsPromise = readVideoDimensions(file);
   const uploadResponse = await fetch("/api/schedule/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -196,7 +220,8 @@ async function uploadFileToR2(
         throw new Error(completeData.error || "Could not upload that video.");
       }
       onProgress(100);
-      return completeData.path;
+      const { width, height } = await dimensionsPromise;
+      return { path: completeData.path, width, height };
     } catch (error) {
       await fetch("/api/schedule/upload/abort", {
         method: "POST",
@@ -214,7 +239,8 @@ async function uploadFileToR2(
     onProgress(Math.min(100, Math.round((loaded / file.size) * 100)));
   });
   onProgress(100);
-  return plan.path;
+  const { width, height } = await dimensionsPromise;
+  return { path: plan.path, width, height };
 }
 
 function selectedDateToUtcDay(date: Date): string {
@@ -446,14 +472,14 @@ export default function SchedulePage() {
     setSaving(true);
     setUploadPercent(0);
     try {
-      const path = await uploadFileToR2(draft.file, setUploadPercent);
+      const video = await uploadFileToR2(draft.file, setUploadPercent);
       const response = await fetch("/api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId: draft.accountId,
           scheduledDate: selectedDateToUtcDay(draft.scheduledDate),
-          path,
+          video,
         }),
       });
       const data = await readApiJson<{
@@ -629,7 +655,7 @@ export default function SchedulePage() {
             </TableHeader>
             <TableBody>
               {items.map((item) => {
-                const src = buildCdnUrl(item.path);
+                const src = buildCdnUrl(item.video.path);
                 const label = formatUtcDay(item.scheduledDate);
                 const accountName =
                   accounts.find((account) => account.id === item.accountId)
@@ -660,7 +686,7 @@ export default function SchedulePage() {
                           preload="metadata"
                         />
                       ) : (
-                        <span className="text-muted-foreground">{item.path}</span>
+                        <span className="text-muted-foreground">{item.video.path}</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">

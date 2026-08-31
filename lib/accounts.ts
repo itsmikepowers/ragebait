@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { MongoServerError, ObjectId, type Collection } from "mongodb";
 import {
   createPresignedR2PutUrl,
@@ -7,12 +6,10 @@ import {
   r2ObjectExists,
 } from "./cloudflare";
 import { getDb } from "./mongodb";
+import { type MediaRef, parseOptionalMediaRef } from "./media";
+import { randomUUID } from "crypto";
 
-export type AccountLogo = {
-  path: string;
-  width: number;
-  height: number;
-};
+export type AccountLogo = MediaRef;
 
 export type Account = {
   id: string;
@@ -24,9 +21,7 @@ export type Account = {
 type AccountDoc = {
   name: string;
   username: string;
-  logoPath?: string | null;
-  logoWidth?: number | null;
-  logoHeight?: number | null;
+  logo?: AccountLogo | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -34,9 +29,7 @@ type AccountDoc = {
 type AccountFields = {
   name?: unknown;
   username?: unknown;
-  logoPath?: unknown;
-  logoWidth?: unknown;
-  logoHeight?: unknown;
+  logo?: unknown;
 };
 
 const NAME_MAX = 80;
@@ -44,8 +37,6 @@ const USERNAME_MAX = 80;
 
 const LOGO_FOLDER = "logos";
 const LOGO_MAX_BYTES = 8 * 1024 * 1024;
-const LOGO_DIM_MIN = 1;
-const LOGO_DIM_MAX = 8000;
 const LOGO_ALLOWED_EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -78,49 +69,20 @@ function normalizeUsername(value: unknown): string | null {
   return username;
 }
 
-function normalizeDimension(value: unknown): number | null {
-  const num =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value)
-        : NaN;
-  if (
-    !Number.isFinite(num) ||
-    !Number.isInteger(num) ||
-    num < LOGO_DIM_MIN ||
-    num > LOGO_DIM_MAX
-  ) {
-    return null;
-  }
-  return num;
-}
-
-function parseLogoFields(fields: AccountFields): AccountLogo | null {
-  const rawPath = fields.logoPath;
-  if (rawPath == null || rawPath === "") {
-    return null;
-  }
-  if (typeof rawPath !== "string" || !LOGO_PATH_RE.test(rawPath)) {
-    throw new AccountError("Could not save that logo.", 400);
-  }
-  const width = normalizeDimension(fields.logoWidth);
-  const height = normalizeDimension(fields.logoHeight);
-  if (width === null || height === null) {
-    throw new AccountError("Could not save that logo.", 400);
-  }
-  return { path: rawPath, width, height };
-}
-
-function parseFields(
-  fields: AccountFields,
-): { name: string; username: string; logo: AccountLogo | null } {
+function parseFields(fields: AccountFields): {
+  name: string;
+  username: string;
+  logo: AccountLogo | null;
+} {
   const name = normalizeName(fields.name);
   const username = normalizeUsername(fields.username);
   if (!name || !username) {
     throw new AccountError("Enter a name and username.", 400);
   }
-  const logo = parseLogoFields(fields);
+  const logo = parseOptionalMediaRef(fields.logo, LOGO_PATH_RE);
+  if (logo === undefined) {
+    throw new AccountError("Could not save that logo.", 400);
+  }
   return { name, username, logo };
 }
 
@@ -136,10 +98,7 @@ function toAccount(doc: AccountDoc & { _id: ObjectId }): Account {
     id: doc._id.toHexString(),
     name: doc.name,
     username: doc.username ?? "",
-    logo:
-      doc.logoPath && doc.logoWidth && doc.logoHeight
-        ? { path: doc.logoPath, width: doc.logoWidth, height: doc.logoHeight }
-        : null,
+    logo: doc.logo ?? null,
   };
 }
 
@@ -205,9 +164,7 @@ export async function createAccount(fields: AccountFields): Promise<Account> {
     const result = await collection.insertOne({
       name,
       username,
-      logoPath: logo?.path ?? null,
-      logoWidth: logo?.width ?? null,
-      logoHeight: logo?.height ?? null,
+      logo,
       createdAt: now,
       updatedAt: now,
     });
@@ -244,23 +201,14 @@ export async function updateAccount(
     }
     const result = await collection.findOneAndUpdate(
       { _id: id },
-      {
-        $set: {
-          name,
-          username,
-          logoPath: logo?.path ?? null,
-          logoWidth: logo?.width ?? null,
-          logoHeight: logo?.height ?? null,
-          updatedAt: new Date(),
-        },
-      },
+      { $set: { name, username, logo, updatedAt: new Date() } },
       { returnDocument: "after" },
     );
     if (!result) {
       throw new AccountError("Account not found.", 404);
     }
-    if (previous.logoPath && previous.logoPath !== (logo?.path ?? null)) {
-      await deleteFileFromCloudflare(previous.logoPath).catch(() => undefined);
+    if (previous.logo?.path && previous.logo.path !== logo?.path) {
+      await deleteFileFromCloudflare(previous.logo.path).catch(() => undefined);
     }
     return toAccount(result);
   } catch (error) {
@@ -297,8 +245,8 @@ export async function deleteAccount(rawId: string): Promise<void> {
   if (result.deletedCount === 0) {
     throw new AccountError("Account not found.", 404);
   }
-  if (doc?.logoPath) {
-    await deleteFileFromCloudflare(doc.logoPath).catch(() => undefined);
+  if (doc?.logo?.path) {
+    await deleteFileFromCloudflare(doc.logo.path).catch(() => undefined);
   }
 }
 

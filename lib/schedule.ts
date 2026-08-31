@@ -12,11 +12,14 @@ import {
   r2ObjectExists,
 } from "./cloudflare";
 import { getDb } from "./mongodb";
+import { type MediaRef, parseRequiredMediaRef } from "./media";
+
+export type ScheduledVideo = MediaRef;
 
 export type ScheduledItem = {
   id: string;
   accountId: string;
-  path: string;
+  video: ScheduledVideo;
   scheduledDate: string;
   posted: boolean;
 };
@@ -30,7 +33,7 @@ export type PublicScheduledPost = {
 
 type ScheduledItemDoc = {
   accountId: ObjectId;
-  path: string;
+  video: ScheduledVideo;
   scheduledDate: Date;
   posted: boolean;
   createdAt: Date;
@@ -102,7 +105,7 @@ function toScheduledItem(
   return {
     id: doc._id.toHexString(),
     accountId: doc.accountId?.toHexString?.() ?? "",
-    path: doc.path,
+    video: doc.video,
     scheduledDate:
       doc.scheduledDate instanceof Date ? doc.scheduledDate.toISOString() : "",
     posted: doc.posted === true,
@@ -189,7 +192,7 @@ export async function getTodaysPublicPost(
   return {
     username: account.username,
     date: item.scheduledDate.slice(0, 10),
-    url: buildCdnUrl(item.path),
+    url: buildCdnUrl(item.video.path),
     posted: item.posted,
   };
 }
@@ -259,19 +262,15 @@ export async function createScheduleUpload(
   };
 }
 
-function parseSchedulePath(pathValue: unknown): string {
-  if (typeof pathValue !== "string" || !SCHEDULE_PATH_RE.test(pathValue)) {
-    throw new ScheduleError("Upload an MP4.", 400);
-  }
-  return pathValue;
-}
-
 export async function completeScheduleUpload(
   pathValue: unknown,
   uploadIdValue: unknown,
   partsValue: unknown,
 ): Promise<{ path: string }> {
-  const path = parseSchedulePath(pathValue);
+  if (typeof pathValue !== "string" || !SCHEDULE_PATH_RE.test(pathValue)) {
+    throw new ScheduleError("Upload an MP4.", 400);
+  }
+  const path = pathValue;
   if (typeof uploadIdValue !== "string" || !uploadIdValue) {
     throw new ScheduleError("Could not upload that video.", 400);
   }
@@ -305,7 +304,10 @@ export async function abortScheduleUpload(
   pathValue: unknown,
   uploadIdValue: unknown,
 ): Promise<void> {
-  const path = parseSchedulePath(pathValue);
+  if (typeof pathValue !== "string" || !SCHEDULE_PATH_RE.test(pathValue)) {
+    throw new ScheduleError("Upload an MP4.", 400);
+  }
+  const path = pathValue;
   if (typeof uploadIdValue !== "string" || !uploadIdValue) {
     throw new ScheduleError("Could not upload that video.", 400);
   }
@@ -315,16 +317,17 @@ export async function abortScheduleUpload(
 export async function createScheduledItem(
   scheduledDateValue: unknown,
   accountIdValue: unknown,
-  pathValue: unknown,
+  videoValue: unknown,
 ): Promise<ScheduledItem> {
   const { accountId, scheduledDate } = await parseScheduleFields(
     accountIdValue,
     scheduledDateValue,
   );
-  if (typeof pathValue !== "string" || !SCHEDULE_PATH_RE.test(pathValue)) {
+  const video = parseRequiredMediaRef(videoValue, SCHEDULE_PATH_RE);
+  if (!video) {
     throw new ScheduleError("Upload an MP4.", 400);
   }
-  if (!(await r2ObjectExists(pathValue))) {
+  if (!(await r2ObjectExists(video.path))) {
     throw new ScheduleError("Could not upload that video.", 400);
   }
 
@@ -333,7 +336,7 @@ export async function createScheduledItem(
     const collection = await scheduleCollection();
     const result = await collection.insertOne({
       accountId,
-      path: pathValue,
+      video,
       scheduledDate,
       posted: false,
       createdAt: now,
@@ -342,12 +345,12 @@ export async function createScheduledItem(
     return {
       id: result.insertedId.toHexString(),
       accountId: accountId.toHexString(),
-      path: pathValue,
+      video,
       scheduledDate: scheduledDate.toISOString(),
       posted: false,
     };
   } catch (error) {
-    await deleteFileFromCloudflare(pathValue).catch(() => undefined);
+    await deleteFileFromCloudflare(video.path).catch(() => undefined);
     throw error;
   }
 }
@@ -390,6 +393,6 @@ export async function deleteScheduledItem(rawId: string): Promise<void> {
     throw new ScheduleError("Scheduled item not found.", 404);
   }
 
-  await deleteFileFromCloudflare(doc.path);
+  await deleteFileFromCloudflare(doc.video.path);
   await collection.deleteOne({ _id: id });
 }
