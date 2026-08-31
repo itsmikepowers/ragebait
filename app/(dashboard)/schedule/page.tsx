@@ -742,9 +742,9 @@ export default function SchedulePage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Video</TableHead>
                 <TableHead>Account</TableHead>
                 <TableHead>Scheduled date</TableHead>
-                <TableHead>Video</TableHead>
                 <TableHead className="w-0 text-right">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -762,18 +762,6 @@ export default function SchedulePage() {
                     ?.logo ?? null;
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2.5">
-                        <AccountLogoThumb
-                          logo={accountLogo}
-                          name={accountName}
-                          size={32}
-                          className="rounded-lg"
-                        />
-                        {accountName}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{label}</TableCell>
                     <TableCell>
                       {item.thumbnail ? (
                         <a
@@ -800,6 +788,18 @@ export default function SchedulePage() {
                         <span className="text-muted-foreground">{item.video.path}</span>
                       )}
                     </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <AccountLogoThumb
+                          logo={accountLogo}
+                          name={accountName}
+                          size={32}
+                          className="rounded-lg"
+                        />
+                        {accountName}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{label}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button
