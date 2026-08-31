@@ -26,7 +26,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-[calc(100dvh-11rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
       <h1 className="text-2xl font-semibold tracking-tight">Home</h1>
 
       {error ? (

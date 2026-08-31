@@ -673,7 +673,7 @@ export default function SchedulePage() {
   const dialogOpen = addOpen || editOpen || removeOpen;
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-[calc(100dvh-11rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Schedule</h1>
         <Dialog open={addOpen} onOpenChange={onAddOpenChange}>
