@@ -395,7 +395,7 @@ function ScheduleFields({
           value={accountId || undefined}
           onValueChange={onAccountIdChange}
         >
-          <SelectTrigger id={`${idPrefix}-account`} className="h-11 w-full">
+          <SelectTrigger id={`${idPrefix}-account`} className="!h-11 w-full">
             <SelectValue placeholder="Pick an account" />
           </SelectTrigger>
           <SelectContent position="popper" align="start" className="z-[60]">
