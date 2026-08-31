@@ -346,7 +346,7 @@ function formatUtcDay(iso: string): string {
   }
   return format(
     new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
-    "MMMM d, yyyy",
+    "MMM d, yyyy",
   );
 }
 
@@ -739,7 +739,7 @@ export default function SchedulePage() {
               <TableRow>
                 <TableHead>Video</TableHead>
                 <TableHead>Account</TableHead>
-                <TableHead>Scheduled date</TableHead>
+                <TableHead>Scheduled</TableHead>
                 <TableHead className="w-0 text-right">
                   <span className="sr-only">Actions</span>
                 </TableHead>
