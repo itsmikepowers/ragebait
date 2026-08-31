@@ -490,7 +490,6 @@ export default function AccountsPage() {
               <Button
                 type="button"
                 variant="destructive"
-                className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/40 dark:bg-destructive dark:hover:bg-destructive/90"
                 onClick={() => {
                   if (!editAccount) {
                     return;
