@@ -1,8 +1,9 @@
 "use client";
 
 import { DragEvent, FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
 import { format } from "date-fns";
-import { LuFileVideo, LuPencil, LuUpload } from "react-icons/lu";
+import { LuFileVideo, LuPencil, LuPlay, LuUpload } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -572,6 +573,9 @@ export default function SchedulePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ScheduledItem | null>(null);
   const [editDraft, setEditDraft] = useState<ScheduleDraft>(emptyDraft);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewItem, setViewItem] = useState<ScheduledItem | null>(null);
+  const [viewPlaying, setViewPlaying] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeItem, setRemoveItem] = useState<ScheduledItem | null>(null);
   const [error, setError] = useState("");
@@ -610,6 +614,33 @@ export default function SchedulePage() {
     if (next) {
       setError("");
     }
+  }
+
+  function onViewOpenChange(next: boolean) {
+    setViewOpen(next);
+    if (!next) {
+      setViewPlaying(false);
+    }
+  }
+
+  function openViewer(item: ScheduledItem) {
+    setError("");
+    setViewItem(item);
+    setViewPlaying(false);
+    setViewOpen(true);
+  }
+
+  function openEditor(item: ScheduledItem) {
+    setError("");
+    setEditItem(item);
+    setEditDraft({
+      accountId: item.accountId,
+      scheduledDate: isoToLocalDate(item.scheduledDate),
+      file: null,
+      caption: item.caption ?? "",
+      firstComment: item.firstComment ?? "",
+    });
+    setEditOpen(true);
   }
 
   async function onAdd(event: FormEvent<HTMLFormElement>) {
@@ -861,28 +892,24 @@ export default function SchedulePage() {
                       accounts.find((account) => account.id === item.accountId)
                         ?.logo ?? null;
                     return (
-                      <TableRow key={item.id}>
+                      <TableRow
+                        key={item.id}
+                        className="cursor-pointer"
+                        onClick={() => openViewer(item)}
+                      >
                         <TableCell>
                           <div className="flex items-center gap-3">
                             {item.thumbnail ? (
-                              <a
-                                href={src ?? undefined}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex w-fit"
-                              >
-                                <MediaThumb
-                                  media={item.thumbnail}
-                                  fallbackLabel={accountName}
-                                  size={56}
-                                  className="rounded-md"
-                                />
-                              </a>
+                              <MediaThumb
+                                media={item.thumbnail}
+                                fallbackLabel={accountName}
+                                size={56}
+                                className="rounded-md"
+                              />
                             ) : src ? (
                               <video
                                 className="h-14 w-14 shrink-0 rounded-md bg-black/5 object-cover"
                                 src={src}
-                                controls
                                 preload="metadata"
                               />
                             ) : (
@@ -917,17 +944,9 @@ export default function SchedulePage() {
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`Edit ${label}`}
-                              onClick={() => {
-                                setError("");
-                                setEditItem(item);
-                                setEditDraft({
-                                  accountId: item.accountId,
-                                  scheduledDate: isoToLocalDate(item.scheduledDate),
-                                  file: null,
-                                  caption: item.caption ?? "",
-                                  firstComment: item.firstComment ?? "",
-                                });
-                                setEditOpen(true);
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditor(item);
                               }}
                             >
                               <LuPencil />
@@ -941,6 +960,107 @@ export default function SchedulePage() {
           </Table>
         </div>
       )}
+
+      <Dialog open={viewOpen} onOpenChange={onViewOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {viewItem
+                ? (accounts.find((account) => account.id === viewItem.accountId)
+                    ?.name ?? "Scheduled post")
+                : "Scheduled post"}
+            </DialogTitle>
+            <DialogDescription>
+              {viewItem ? formatScheduledDate(viewItem.scheduledDate) : null}
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewItem ? (
+            <div className="grid gap-4">
+              <div className="relative overflow-hidden rounded-lg bg-black">
+                {viewPlaying ? (
+                  <video
+                    className="max-h-[60vh] w-full object-contain"
+                    src={buildCdnUrl(viewItem.video.path) ?? undefined}
+                    controls
+                    autoPlay
+                    playsInline
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setViewPlaying(true)}
+                    className="group relative flex w-full cursor-pointer items-center justify-center"
+                    aria-label="Play video"
+                  >
+                    {viewItem.thumbnail ? (
+                      <Image
+                        src={buildCdnUrl(viewItem.thumbnail.path) ?? ""}
+                        alt=""
+                        width={viewItem.thumbnail.width}
+                        height={viewItem.thumbnail.height}
+                        unoptimized
+                        className="max-h-[60vh] w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex aspect-square w-full items-center justify-center text-sm text-white/60">
+                        No preview
+                      </div>
+                    )}
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="flex size-14 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/25 backdrop-blur-sm transition group-hover:bg-black/70">
+                        <LuPlay className="ml-0.5 size-6 fill-current" />
+                      </span>
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid gap-3">
+                <div className="grid gap-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Caption
+                  </span>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {viewItem.caption || (
+                      <span className="text-muted-foreground">No caption</span>
+                    )}
+                  </p>
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    First comment
+                  </span>
+                  <p className="text-sm break-words whitespace-pre-wrap">
+                    {viewItem.firstComment || (
+                      <span className="text-muted-foreground">
+                        No first comment
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter showCloseButton>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!viewItem) {
+                  return;
+                }
+                const item = viewItem;
+                setViewOpen(false);
+                setViewPlaying(false);
+                openEditor(item);
+              }}
+            >
+              Edit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editOpen} onOpenChange={onEditOpenChange}>
         <DialogContent>
