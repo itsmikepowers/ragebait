@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -401,11 +402,7 @@ export default function AccountsPage() {
         <p className="mt-3 text-sm text-muted-foreground">{error}</p>
       ) : null}
 
-      {loading ? (
-        <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Loading accounts.
-        </p>
-      ) : accounts.length === 0 ? (
+      {!loading && accounts.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           No accounts yet.
         </p>
@@ -422,59 +419,79 @@ export default function AccountsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2.5">
-                      <AccountLogoThumb
-                        logo={account.logo}
-                        name={account.name}
-                        size={32}
-                        className="rounded-lg"
-                      />
-                      {account.name}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    @{account.username}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${account.name}`}
-                        onClick={() => {
-                          setError("");
-                          setEditAccount(account);
-                          setEditDraft({
-                            name: account.name,
-                            username: account.username,
-                            logo: account.logo,
-                          });
-                          setEditOpen(true);
-                        }}
-                      >
-                        <LuPencil />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Remove ${account.name}`}
-                        onClick={() => {
-                          setError("");
-                          setRemoveAccount(account);
-                          setRemoveOpen(true);
-                        }}
-                      >
-                        <LuTrash2 />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {loading
+                ? Array.from({ length: 4 }, (_, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2.5">
+                          <Skeleton className="size-8 rounded-lg" />
+                          <Skeleton className="h-4 w-28" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-20" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Skeleton className="size-7 rounded-md" />
+                          <Skeleton className="size-7 rounded-md" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : accounts.map((account) => (
+                    <TableRow key={account.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2.5">
+                          <AccountLogoThumb
+                            logo={account.logo}
+                            name={account.name}
+                            size={32}
+                            className="rounded-lg"
+                          />
+                          {account.name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        @{account.username}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Edit ${account.name}`}
+                            onClick={() => {
+                              setError("");
+                              setEditAccount(account);
+                              setEditDraft({
+                                name: account.name,
+                                username: account.username,
+                                logo: account.logo,
+                              });
+                              setEditOpen(true);
+                            }}
+                          >
+                            <LuPencil />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Remove ${account.name}`}
+                            onClick={() => {
+                              setError("");
+                              setRemoveAccount(account);
+                              setRemoveOpen(true);
+                            }}
+                          >
+                            <LuTrash2 />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
             </TableBody>
           </Table>
         </div>

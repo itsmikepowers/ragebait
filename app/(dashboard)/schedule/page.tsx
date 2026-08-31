@@ -33,6 +33,7 @@ import { buildCdnUrl } from "@/lib/cdn";
 import { cn } from "@/lib/utils";
 import { AccountLogoThumb } from "@/components/account-logo";
 import { MediaThumb } from "@/components/media-thumb";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type AccountLogo = {
   path: string;
@@ -739,11 +740,7 @@ export default function SchedulePage() {
         <p className="mt-3 text-sm text-muted-foreground">{error}</p>
       ) : null}
 
-      {loading ? (
-        <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Loading schedule.
-        </p>
-      ) : items.length === 0 ? (
+      {!loading && items.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           No scheduled items yet.
         </p>
@@ -761,93 +758,116 @@ export default function SchedulePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => {
-                const src = buildCdnUrl(item.video.path);
-                const label = formatUtcDay(item.scheduledDate);
-                const accountName =
-                  accounts.find((account) => account.id === item.accountId)
-                    ?.name ?? "—";
-                const accountLogo =
-                  accounts.find((account) => account.id === item.accountId)
-                    ?.logo ?? null;
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      {item.thumbnail ? (
-                        <a
-                          href={src ?? undefined}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block"
-                        >
-                          <MediaThumb
-                            media={item.thumbnail}
-                            fallbackLabel={accountName}
-                            size={56}
-                            className="rounded-md"
-                          />
-                        </a>
-                      ) : src ? (
-                        <video
-                          className="h-14 w-14 rounded-md bg-black/5 object-cover"
-                          src={src}
-                          controls
-                          preload="metadata"
-                        />
-                      ) : (
-                        <span className="text-muted-foreground">{item.video.path}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2.5">
-                        <AccountLogoThumb
-                          logo={accountLogo}
-                          name={accountName}
-                          size={32}
-                          className="rounded-lg"
-                        />
-                        {accountName}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{label}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Edit ${label}`}
-                          onClick={() => {
-                            setError("");
-                            setEditItem(item);
-                            setEditDraft({
-                              accountId: item.accountId,
-                              scheduledDate: utcDayToLocalDate(item.scheduledDate),
-                              file: null,
-                            });
-                            setEditOpen(true);
-                          }}
-                        >
-                          <LuPencil />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Remove ${label}`}
-                          onClick={() => {
-                            setError("");
-                            setRemoveItem(item);
-                            setRemoveOpen(true);
-                          }}
-                        >
-                          <LuTrash2 />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {loading
+                ? Array.from({ length: 4 }, (_, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Skeleton className="size-14 rounded-md" />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2.5">
+                          <Skeleton className="size-8 rounded-lg" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-28" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Skeleton className="size-7 rounded-md" />
+                          <Skeleton className="size-7 rounded-md" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : items.map((item) => {
+                    const src = buildCdnUrl(item.video.path);
+                    const label = formatUtcDay(item.scheduledDate);
+                    const accountName =
+                      accounts.find((account) => account.id === item.accountId)
+                        ?.name ?? "—";
+                    const accountLogo =
+                      accounts.find((account) => account.id === item.accountId)
+                        ?.logo ?? null;
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          {item.thumbnail ? (
+                            <a
+                              href={src ?? undefined}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block"
+                            >
+                              <MediaThumb
+                                media={item.thumbnail}
+                                fallbackLabel={accountName}
+                                size={56}
+                                className="rounded-md"
+                              />
+                            </a>
+                          ) : src ? (
+                            <video
+                              className="h-14 w-14 rounded-md bg-black/5 object-cover"
+                              src={src}
+                              controls
+                              preload="metadata"
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">{item.video.path}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2.5">
+                            <AccountLogoThumb
+                              logo={accountLogo}
+                              name={accountName}
+                              size={32}
+                              className="rounded-lg"
+                            />
+                            {accountName}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{label}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${label}`}
+                              onClick={() => {
+                                setError("");
+                                setEditItem(item);
+                                setEditDraft({
+                                  accountId: item.accountId,
+                                  scheduledDate: utcDayToLocalDate(item.scheduledDate),
+                                  file: null,
+                                });
+                                setEditOpen(true);
+                              }}
+                            >
+                              <LuPencil />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Remove ${label}`}
+                              onClick={() => {
+                                setError("");
+                                setRemoveItem(item);
+                                setRemoveOpen(true);
+                              }}
+                            >
+                              <LuTrash2 />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
             </TableBody>
           </Table>
         </div>
