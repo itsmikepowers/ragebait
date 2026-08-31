@@ -880,7 +880,16 @@ export default function SchedulePage() {
             <DialogFooter>
               <Button
                 type="submit"
-                disabled={saving || !editDraft.accountId || !editDraft.scheduledDate}
+                disabled={
+                  saving ||
+                  !editDraft.accountId ||
+                  !editDraft.scheduledDate ||
+                  (editItem !== null &&
+                    editDraft.accountId === editItem.accountId &&
+                    editDraft.scheduledDate !== undefined &&
+                    selectedDateToUtcDay(editDraft.scheduledDate) ===
+                      editItem.scheduledDate.slice(0, 10))
+                }
               >
                 {saving ? "Saving" : "Save"}
               </Button>
