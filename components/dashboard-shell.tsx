@@ -18,7 +18,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-full">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-20 hidden h-dvh w-56 flex-col border-r border-black/10 bg-background px-5 py-6 md:flex">
-        <Link href="/">
+        <Link href="/home">
           <Logo />
         </Link>
 
@@ -46,7 +46,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile top header: icon + text */}
       <header className="fixed inset-x-0 top-0 z-20 flex h-14 items-center border-b border-black/10 bg-background px-4 md:hidden">
-        <Link href="/">
+        <Link href="/home">
           <Logo size={24} />
         </Link>
       </header>
