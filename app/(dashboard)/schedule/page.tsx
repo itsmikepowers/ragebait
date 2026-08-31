@@ -336,22 +336,22 @@ async function uploadFileToR2(
   return { video: { path: plan.path, width, height }, thumbnail };
 }
 
-function selectedDateToUtcDay(date: Date): string {
+function selectedDateTimeToIso(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
-function formatUtcDay(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!match) {
+function formatScheduledDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
     return iso;
   }
-  return format(
-    new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
-    "MMM d, yyyy",
-  );
+  return format(date, "MMM d, yyyy h:mm a");
 }
 
 function formatBytes(bytes: number): string {
@@ -361,12 +361,27 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function utcDayToLocalDate(iso: string): Date | undefined {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!match) {
-    return undefined;
+function isoToLocalDate(iso: string): Date | undefined {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function timeStringFromDate(date?: Date): string {
+  if (!date) {
+    return "12:00";
   }
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function applyTimeString(date: Date, time: string): Date {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+  const next = new Date(date);
+  if (match) {
+    next.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  }
+  return next;
 }
 
 function ScheduleFields({
@@ -423,12 +438,32 @@ function ScheduleFields({
         </Select>
       </div>
       <div className="grid gap-1.5">
-        <label htmlFor={`${idPrefix}-date`}>Scheduled date</label>
-        <DatePicker
-          id={`${idPrefix}-date`}
-          date={scheduledDate}
-          onChange={onScheduledDateChange}
-        />
+        <label htmlFor={`${idPrefix}-date`}>Scheduled date &amp; time</label>
+        <div className="flex gap-2">
+          <DatePicker
+            id={`${idPrefix}-date`}
+            date={scheduledDate}
+            onChange={(nextDate) => {
+              if (!nextDate) {
+                onScheduledDateChange(undefined);
+                return;
+              }
+              const time = timeStringFromDate(scheduledDate);
+              onScheduledDateChange(applyTimeString(nextDate, time));
+            }}
+          />
+          <input
+            id={`${idPrefix}-time`}
+            type="time"
+            aria-label="Scheduled time"
+            value={timeStringFromDate(scheduledDate)}
+            onChange={(event) => {
+              const base = scheduledDate ?? new Date();
+              onScheduledDateChange(applyTimeString(base, event.target.value));
+            }}
+            className="h-11 w-32 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          />
+        </div>
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${idPrefix}-caption`}>Caption</label>
@@ -609,7 +644,7 @@ export default function SchedulePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId: draft.accountId,
-          scheduledDate: selectedDateToUtcDay(draft.scheduledDate),
+          scheduledDate: selectedDateTimeToIso(draft.scheduledDate),
           video,
           thumbnail,
           caption: draft.caption,
@@ -656,7 +691,7 @@ export default function SchedulePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId: editDraft.accountId,
-          scheduledDate: selectedDateToUtcDay(editDraft.scheduledDate),
+          scheduledDate: selectedDateTimeToIso(editDraft.scheduledDate),
           caption: editDraft.caption,
           firstComment: editDraft.firstComment,
         }),
@@ -818,7 +853,7 @@ export default function SchedulePage() {
                   ))
                 : items.map((item) => {
                     const src = buildCdnUrl(item.video.path);
-                    const label = formatUtcDay(item.scheduledDate);
+                    const label = formatScheduledDate(item.scheduledDate);
                     const accountName =
                       accounts.find((account) => account.id === item.accountId)
                         ?.name ?? "—";
@@ -877,7 +912,7 @@ export default function SchedulePage() {
                                 setEditItem(item);
                                 setEditDraft({
                                   accountId: item.accountId,
-                                  scheduledDate: utcDayToLocalDate(item.scheduledDate),
+                                  scheduledDate: isoToLocalDate(item.scheduledDate),
                                   file: null,
                                   caption: item.caption ?? "",
                                   firstComment: item.firstComment ?? "",
@@ -955,8 +990,10 @@ export default function SchedulePage() {
                   (editItem !== null &&
                     editDraft.accountId === editItem.accountId &&
                     editDraft.scheduledDate !== undefined &&
-                    selectedDateToUtcDay(editDraft.scheduledDate) ===
-                      editItem.scheduledDate.slice(0, 10))
+                    selectedDateTimeToIso(editDraft.scheduledDate) ===
+                      selectedDateTimeToIso(new Date(editItem.scheduledDate)) &&
+                    editDraft.caption === (editItem.caption ?? "") &&
+                    editDraft.firstComment === (editItem.firstComment ?? ""))
                 }
               >
                 {saving ? "Saving" : "Save"}
@@ -971,7 +1008,7 @@ export default function SchedulePage() {
           <DialogHeader>
             <DialogTitle>Remove scheduled item</DialogTitle>
             <DialogDescription>
-              Remove the item for {removeItem ? formatUtcDay(removeItem.scheduledDate) : "this date"}?
+              Remove the item for {removeItem ? formatScheduledDate(removeItem.scheduledDate) : "this date"}?
               This can&apos;t be undone.
             </DialogDescription>
           </DialogHeader>

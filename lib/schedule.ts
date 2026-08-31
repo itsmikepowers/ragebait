@@ -113,11 +113,20 @@ function parseId(value: string): ObjectId | null {
   return new ObjectId(value);
 }
 
-function parseUtcDate(value: unknown): Date | null {
+function parseScheduledDateTime(value: unknown): Date | null {
   if (typeof value !== "string") {
     return null;
   }
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim().slice(0, 10));
+  const trimmed = value.trim();
+
+  // Full ISO datetime (e.g. from the dashboard's date+time picker).
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  // Legacy date-only string ("YYYY-MM-DD") — defaults to UTC midnight.
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed.slice(0, 10));
   if (!match) {
     return null;
   }
@@ -155,7 +164,7 @@ async function parseScheduleFields(
   accountIdValue: unknown,
   scheduledDateValue: unknown,
 ): Promise<{ accountId: ObjectId; scheduledDate: Date }> {
-  const scheduledDate = parseUtcDate(scheduledDateValue);
+  const scheduledDate = parseScheduledDateTime(scheduledDateValue);
   if (!scheduledDate) {
     throw new ScheduleError("Pick a date.", 400);
   }
@@ -193,13 +202,7 @@ export async function listScheduledItems(): Promise<ScheduledItem[]> {
   return docs.map(toScheduledItem);
 }
 
-function utcDayStart(date = new Date()): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-}
-
-async function findTodaysScheduledDoc(rawUsername: string) {
+async function findNextDueScheduledDoc(rawUsername: string) {
   const account = await getAccountByUsername(rawUsername);
   if (!account) {
     throw new ScheduleError("Account not found.", 404);
@@ -210,14 +213,13 @@ async function findTodaysScheduledDoc(rawUsername: string) {
     throw new ScheduleError("Account not found.", 404);
   }
 
-  const scheduledDate = utcDayStart();
   const collection = await scheduleCollection();
   const doc = await collection.findOne(
-    { accountId, scheduledDate },
-    { sort: { createdAt: 1 } },
+    { accountId, posted: false, scheduledDate: { $lte: new Date() } },
+    { sort: { scheduledDate: 1, createdAt: 1 } },
   );
   if (!doc) {
-    throw new ScheduleError("No scheduled post for today.", 404);
+    throw new ScheduleError("No scheduled post is due yet.", 404);
   }
 
   return { account, collection, doc };
@@ -226,11 +228,11 @@ async function findTodaysScheduledDoc(rawUsername: string) {
 export async function getTodaysPublicPost(
   rawUsername: string,
 ): Promise<PublicScheduledPost> {
-  const { account, doc } = await findTodaysScheduledDoc(rawUsername);
+  const { account, doc } = await findNextDueScheduledDoc(rawUsername);
   const item = toScheduledItem(doc);
   return {
     username: account.username,
-    date: item.scheduledDate.slice(0, 10),
+    date: item.scheduledDate,
     url: buildCdnUrl(item.video.path),
     caption: item.caption,
     firstComment: item.firstComment,
@@ -241,7 +243,7 @@ export async function getTodaysPublicPost(
 export async function finalizeTodaysPublicPost(
   rawUsername: string,
 ): Promise<{ status: "okay" | "already posted" }> {
-  const { collection, doc } = await findTodaysScheduledDoc(rawUsername);
+  const { collection, doc } = await findNextDueScheduledDoc(rawUsername);
   if (doc.posted === true) {
     return { status: "already posted" };
   }
