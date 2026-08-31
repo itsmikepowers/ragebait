@@ -868,7 +868,7 @@ export default function SchedulePage() {
                               href={src ?? undefined}
                               target="_blank"
                               rel="noreferrer"
-                              className="block"
+                              className="flex w-fit"
                             >
                               <MediaThumb
                                 media={item.thumbnail}

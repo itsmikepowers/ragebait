@@ -30,7 +30,7 @@ export function MediaThumb({
     return (
       <span
         className={cn(
-          "inline-block shrink-0 overflow-hidden rounded-md bg-black/5",
+          "block shrink-0 overflow-hidden rounded-md bg-black/5",
           className,
         )}
         style={{ width: size, height: size }}
@@ -51,7 +51,7 @@ export function MediaThumb({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md bg-black/5 text-xs font-medium text-muted-foreground",
+        "flex shrink-0 items-center justify-center rounded-md bg-black/5 text-xs font-medium text-muted-foreground",
         className,
       )}
       style={{ width: size, height: size }}
