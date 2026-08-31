@@ -54,9 +54,12 @@ export default function PasswordPage() {
           onChange={(event) => setPassword(event.target.value)}
           placeholder="Password"
           autoFocus
-          className="border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/40"
+          className="rounded-lg border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/40"
         />
-        <button type="submit" className="bg-black px-3 py-2 text-sm text-white">
+        <button
+          type="submit"
+          className="rounded-lg bg-black px-3 py-2 text-sm text-white"
+        >
           Continue
         </button>
         {error ? <p className="text-sm text-muted-foreground">{error}</p> : null}

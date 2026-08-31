@@ -403,7 +403,7 @@ function ScheduleFields({
               <SelectItem
                 key={account.id}
                 value={account.id}
-                className="gap-3 py-2"
+                className="min-h-11 gap-3 py-2"
               >
                 <AccountLogoThumb
                   logo={account.logo}

@@ -33,7 +33,7 @@ export function DatePicker({
           variant="outline"
           data-empty={!date}
           className={cn(
-            "w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground",
+            "h-11 w-full justify-start text-left font-normal data-[empty=true]:text-muted-foreground",
           )}
         >
           <CalendarIcon />
