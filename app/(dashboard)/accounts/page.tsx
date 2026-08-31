@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { LuPencil, LuTrash2 } from "react-icons/lu";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { LuImagePlus, LuPencil, LuTrash2 } from "react-icons/lu";
+import { AccountLogoThumb } from "@/components/account-logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,21 +23,168 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+type AccountLogo = {
+  path: string;
+  width: number;
+  height: number;
+};
+
 type Account = {
   id: string;
   name: string;
   username: string;
+  logo: AccountLogo | null;
 };
 
 type AccountDraft = {
   name: string;
   username: string;
+  logo: AccountLogo | null;
 };
 
 const emptyDraft: AccountDraft = {
   name: "",
   username: "",
+  logo: null,
 };
+
+const LOGO_MAX_BYTES = 8 * 1024 * 1024;
+const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const LOGO_ALLOWED_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
+]);
+
+async function readApiJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      response.status === 413 ? "That image is too large." : "Could not save that.",
+    );
+  }
+}
+
+function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read that image."));
+    };
+    img.src = url;
+  });
+}
+
+async function uploadLogoToR2(file: File): Promise<AccountLogo> {
+  if (!LOGO_ALLOWED_TYPES.has(file.type)) {
+    throw new Error("Upload a PNG, JPEG, WEBP, or GIF image.");
+  }
+  if (file.size > LOGO_MAX_BYTES) {
+    throw new Error("That image is too large.");
+  }
+
+  const { width, height } = await readImageDimensions(file);
+
+  const planResponse = await fetch("/api/accounts/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ size: file.size, contentType: file.type }),
+  });
+  const plan = await readApiJson<{
+    path?: string;
+    uploadUrl?: string;
+    error?: string;
+  }>(planResponse);
+  if (!planResponse.ok || !plan.path || !plan.uploadUrl) {
+    throw new Error(plan.error || "Could not upload that image.");
+  }
+
+  const putResponse = await fetch(plan.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!putResponse.ok) {
+    throw new Error("Could not upload that image.");
+  }
+
+  return { path: plan.path, width, height };
+}
+
+function LogoDrop({
+  idPrefix,
+  logo,
+  name,
+  onLogo,
+}: {
+  idPrefix: string;
+  logo: AccountLogo | null;
+  name: string;
+  onLogo: (logo: AccountLogo) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [localError, setLocalError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(file: File | null) {
+    if (!file) {
+      return;
+    }
+    setLocalError("");
+    setUploading(true);
+    try {
+      const uploaded = await uploadLogoToR2(file);
+      onLogo(uploaded);
+    } catch (err: unknown) {
+      setLocalError(err instanceof Error ? err.message : "Could not upload that image.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-1.5">
+      <span>Logo</span>
+      <div className="flex items-center gap-3">
+        <AccountLogoThumb logo={logo} name={name} size={48} className="rounded-xl" />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <LuImagePlus />
+          {uploading ? "Uploading…" : logo ? "Replace image" : "Upload image"}
+        </Button>
+        <input
+          ref={inputRef}
+          id={`${idPrefix}-logo`}
+          type="file"
+          accept={LOGO_ACCEPT}
+          className="sr-only"
+          onChange={(event) => {
+            void handleFile(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {localError ? (
+        <p className="text-sm text-muted-foreground">{localError}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function AccountFields({
   idPrefix,
@@ -49,6 +197,12 @@ function AccountFields({
 }) {
   return (
     <div className="grid gap-3">
+      <LogoDrop
+        idPrefix={idPrefix}
+        logo={value.logo}
+        name={value.name}
+        onLogo={(logo) => onChange({ ...value, logo })}
+      />
       <div className="grid gap-1.5">
         <label htmlFor={`${idPrefix}-name`}>Name</label>
         <Input
@@ -137,7 +291,13 @@ export default function AccountsPage() {
     const response = await fetch("/api/accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
+      body: JSON.stringify({
+        name: draft.name,
+        username: draft.username,
+        logoPath: draft.logo?.path ?? null,
+        logoWidth: draft.logo?.width ?? null,
+        logoHeight: draft.logo?.height ?? null,
+      }),
     });
     const data = (await response.json()) as { account?: Account; error?: string };
     if (!response.ok || !data.account) {
@@ -158,7 +318,13 @@ export default function AccountsPage() {
     const response = await fetch(`/api/accounts/${editAccount.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editDraft),
+      body: JSON.stringify({
+        name: editDraft.name,
+        username: editDraft.username,
+        logoPath: editDraft.logo?.path ?? null,
+        logoWidth: editDraft.logo?.width ?? null,
+        logoHeight: editDraft.logo?.height ?? null,
+      }),
     });
     const data = (await response.json()) as { account?: Account; error?: string };
     if (!response.ok || !data.account) {
@@ -210,7 +376,11 @@ export default function AccountsPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={onAdd} className="grid gap-4">
-              <AccountFields idPrefix="add-account" value={draft} onChange={setDraft} />
+              <AccountFields
+                idPrefix="add-account"
+                value={draft}
+                onChange={setDraft}
+              />
               {error ? (
                 <p className="text-sm text-muted-foreground">{error}</p>
               ) : null}
@@ -254,7 +424,17 @@ export default function AccountsPage() {
             <TableBody>
               {accounts.map((account) => (
                 <TableRow key={account.id}>
-                  <TableCell className="font-medium">{account.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2.5">
+                      <AccountLogoThumb
+                        logo={account.logo}
+                        name={account.name}
+                        size={32}
+                        className="rounded-lg"
+                      />
+                      {account.name}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     @{account.username}
                   </TableCell>
@@ -271,6 +451,7 @@ export default function AccountsPage() {
                           setEditDraft({
                             name: account.name,
                             username: account.username,
+                            logo: account.logo,
                           });
                           setEditOpen(true);
                         }}

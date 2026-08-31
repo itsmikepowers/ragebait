@@ -31,10 +31,18 @@ import {
 } from "@/components/ui/table";
 import { buildCdnUrl } from "@/lib/cdn";
 import { cn } from "@/lib/utils";
+import { AccountLogoThumb } from "@/components/account-logo";
+
+type AccountLogo = {
+  path: string;
+  width: number;
+  height: number;
+};
 
 type Account = {
   id: string;
   name: string;
+  logo: AccountLogo | null;
 };
 
 type ScheduledItem = {
@@ -626,9 +634,22 @@ export default function SchedulePage() {
                 const accountName =
                   accounts.find((account) => account.id === item.accountId)
                     ?.name ?? "—";
+                const accountLogo =
+                  accounts.find((account) => account.id === item.accountId)
+                    ?.logo ?? null;
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{accountName}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <AccountLogoThumb
+                          logo={accountLogo}
+                          name={accountName}
+                          size={32}
+                          className="rounded-lg"
+                        />
+                        {accountName}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{label}</TableCell>
                     <TableCell>
                       {src ? (
