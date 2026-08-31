@@ -26,19 +26,16 @@ type Account = {
   id: string;
   name: string;
   username: string;
-  phone: string;
 };
 
 type AccountDraft = {
   name: string;
   username: string;
-  phone: string;
 };
 
 const emptyDraft: AccountDraft = {
   name: "",
   username: "",
-  phone: "",
 };
 
 function AccountFields({
@@ -75,17 +72,6 @@ function AccountFields({
           placeholder="Username"
           maxLength={80}
           required
-        />
-      </div>
-      <div className="grid gap-1.5">
-        <label htmlFor={`${idPrefix}-phone`}>Phone number (optional)</label>
-        <Input
-          id={`${idPrefix}-phone`}
-          value={value.phone}
-          onChange={(event) => onChange({ ...value, phone: event.target.value })}
-          placeholder="Phone number"
-          maxLength={40}
-          inputMode="tel"
         />
       </div>
     </div>
@@ -260,7 +246,6 @@ export default function AccountsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Username</TableHead>
-                <TableHead>Phone number</TableHead>
                 <TableHead className="w-0 text-right">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -272,9 +257,6 @@ export default function AccountsPage() {
                   <TableCell className="font-medium">{account.name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     @{account.username}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {account.phone || "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -289,7 +271,6 @@ export default function AccountsPage() {
                           setEditDraft({
                             name: account.name,
                             username: account.username,
-                            phone: account.phone,
                           });
                           setEditOpen(true);
                         }}

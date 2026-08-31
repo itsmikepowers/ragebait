@@ -5,13 +5,11 @@ export type Account = {
   id: string;
   name: string;
   username: string;
-  phone: string;
 };
 
 type AccountDoc = {
   name: string;
   username: string;
-  phone: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -19,12 +17,10 @@ type AccountDoc = {
 type AccountFields = {
   name?: unknown;
   username?: unknown;
-  phone?: unknown;
 };
 
 const NAME_MAX = 80;
 const USERNAME_MAX = 80;
-const PHONE_MAX = 40;
 
 function normalizeName(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -48,38 +44,13 @@ function normalizeUsername(value: unknown): string | null {
   return username;
 }
 
-function normalizePhone(value: unknown): string | null {
-  if (value == null) {
-    return "";
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
-  const phone = value.trim();
-  if (!phone) {
-    return "";
-  }
-  if (phone.length > PHONE_MAX) {
-    return null;
-  }
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length < 7) {
-    return null;
-  }
-  return phone;
-}
-
 function parseFields(fields: AccountFields): Omit<Account, "id"> {
   const name = normalizeName(fields.name);
   const username = normalizeUsername(fields.username);
-  const phone = normalizePhone(fields.phone);
   if (!name || !username) {
     throw new AccountError("Enter a name and username.", 400);
   }
-  if (phone === null) {
-    throw new AccountError("Enter a valid phone number, or leave it blank.", 400);
-  }
-  return { name, username, phone };
+  return { name, username };
 }
 
 function parseId(value: string): ObjectId | null {
@@ -94,7 +65,6 @@ function toAccount(doc: AccountDoc & { _id: ObjectId }): Account {
     id: doc._id.toHexString(),
     name: doc.name,
     username: doc.username ?? "",
-    phone: doc.phone ?? "",
   };
 }
 
