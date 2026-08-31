@@ -764,7 +764,6 @@ export default function SchedulePage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Skeleton className="size-7 rounded-md" />
-                          <Skeleton className="size-7 rounded-md" />
                         </div>
                       </TableCell>
                     </TableRow>
