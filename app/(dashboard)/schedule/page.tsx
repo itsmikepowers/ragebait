@@ -64,12 +64,16 @@ type ScheduleDraft = {
   accountId: string;
   scheduledDate?: Date;
   file: File | null;
+  caption: string;
+  firstComment: string;
 };
 
 const emptyDraft: ScheduleDraft = {
   accountId: "",
   scheduledDate: undefined,
   file: null,
+  caption: "",
+  firstComment: "",
 };
 
 const MP4_MAX_BYTES = 100 * 1024 * 1024;
@@ -370,15 +374,23 @@ function ScheduleFields({
   accounts,
   accountId,
   scheduledDate,
+  caption,
+  firstComment,
   onAccountIdChange,
   onScheduledDateChange,
+  onCaptionChange,
+  onFirstCommentChange,
 }: {
   idPrefix: string;
   accounts: Account[];
   accountId: string;
   scheduledDate?: Date;
+  caption: string;
+  firstComment: string;
   onAccountIdChange: (accountId: string) => void;
   onScheduledDateChange: (scheduledDate: Date | undefined) => void;
+  onCaptionChange: (caption: string) => void;
+  onFirstCommentChange: (firstComment: string) => void;
 }) {
   return (
     <div className="grid gap-3">
@@ -416,6 +428,30 @@ function ScheduleFields({
           id={`${idPrefix}-date`}
           date={scheduledDate}
           onChange={onScheduledDateChange}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label htmlFor={`${idPrefix}-caption`}>Caption</label>
+        <textarea
+          id={`${idPrefix}-caption`}
+          value={caption}
+          onChange={(event) => onCaptionChange(event.target.value)}
+          placeholder="Caption for the post"
+          maxLength={2200}
+          rows={3}
+          className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label htmlFor={`${idPrefix}-first-comment`}>First comment</label>
+        <textarea
+          id={`${idPrefix}-first-comment`}
+          value={firstComment}
+          onChange={(event) => onFirstCommentChange(event.target.value)}
+          placeholder="Hashtags for the first comment"
+          maxLength={2200}
+          rows={2}
+          className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
         />
       </div>
     </div>
@@ -576,6 +612,8 @@ export default function SchedulePage() {
           scheduledDate: selectedDateToUtcDay(draft.scheduledDate),
           video,
           thumbnail,
+          caption: draft.caption,
+          firstComment: draft.firstComment,
         }),
       });
       const data = await readApiJson<{
@@ -619,6 +657,8 @@ export default function SchedulePage() {
         body: JSON.stringify({
           accountId: editDraft.accountId,
           scheduledDate: selectedDateToUtcDay(editDraft.scheduledDate),
+          caption: editDraft.caption,
+          firstComment: editDraft.firstComment,
         }),
       });
       const data = (await response.json()) as {
@@ -683,11 +723,19 @@ export default function SchedulePage() {
                   accounts={accounts}
                   accountId={draft.accountId}
                   scheduledDate={draft.scheduledDate}
+                  caption={draft.caption}
+                  firstComment={draft.firstComment}
                   onAccountIdChange={(accountId) =>
                     setDraft({ ...draft, accountId })
                   }
                   onScheduledDateChange={(scheduledDate) =>
                     setDraft({ ...draft, scheduledDate })
+                  }
+                  onCaptionChange={(caption) =>
+                    setDraft({ ...draft, caption })
+                  }
+                  onFirstCommentChange={(firstComment) =>
+                    setDraft({ ...draft, firstComment })
                   }
                 />
                 <div className="grid gap-1.5">
@@ -831,6 +879,8 @@ export default function SchedulePage() {
                                   accountId: item.accountId,
                                   scheduledDate: utcDayToLocalDate(item.scheduledDate),
                                   file: null,
+                                  caption: item.caption ?? "",
+                                  firstComment: item.firstComment ?? "",
                                 });
                                 setEditOpen(true);
                               }}
@@ -861,11 +911,19 @@ export default function SchedulePage() {
               accounts={accounts}
               accountId={editDraft.accountId}
               scheduledDate={editDraft.scheduledDate}
+              caption={editDraft.caption}
+              firstComment={editDraft.firstComment}
               onAccountIdChange={(accountId) =>
                 setEditDraft({ ...editDraft, accountId })
               }
               onScheduledDateChange={(scheduledDate) =>
                 setEditDraft({ ...editDraft, scheduledDate })
+              }
+              onCaptionChange={(caption) =>
+                setEditDraft({ ...editDraft, caption })
+              }
+              onFirstCommentChange={(firstComment) =>
+                setEditDraft({ ...editDraft, firstComment })
               }
             />
             {error ? (

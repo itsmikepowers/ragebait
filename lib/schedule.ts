@@ -29,6 +29,8 @@ export type ScheduledItem = {
   video: ScheduledVideo;
   thumbnail: ScheduledThumbnail | null;
   scheduledDate: string;
+  caption: string;
+  firstComment: string;
   posted: boolean;
 };
 
@@ -36,6 +38,8 @@ export type PublicScheduledPost = {
   username: string;
   date: string;
   url: string | null;
+  caption: string;
+  firstComment: string;
   posted: boolean;
 };
 
@@ -44,10 +48,29 @@ type ScheduledItemDoc = {
   video: ScheduledVideo;
   thumbnail?: ScheduledThumbnail | null;
   scheduledDate: Date;
+  caption?: string;
+  firstComment?: string;
   posted: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
+
+const CAPTION_MAX = 2200;
+const FIRST_COMMENT_MAX = 2200;
+
+function normalizeCaption(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.slice(0, CAPTION_MAX);
+}
+
+function normalizeFirstComment(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.slice(0, FIRST_COMMENT_MAX);
+}
 
 const VIDEO_FOLDER = "schedule";
 const THUMBNAIL_FOLDER = "thumbnails";
@@ -122,6 +145,8 @@ function toScheduledItem(
     thumbnail: doc.thumbnail ?? null,
     scheduledDate:
       doc.scheduledDate instanceof Date ? doc.scheduledDate.toISOString() : "",
+    caption: doc.caption ?? "",
+    firstComment: doc.firstComment ?? "",
     posted: doc.posted === true,
   };
 }
@@ -207,6 +232,8 @@ export async function getTodaysPublicPost(
     username: account.username,
     date: item.scheduledDate.slice(0, 10),
     url: buildCdnUrl(item.video.path),
+    caption: item.caption,
+    firstComment: item.firstComment,
     posted: item.posted,
   };
 }
@@ -357,6 +384,8 @@ export async function createScheduledItem(
   accountIdValue: unknown,
   videoValue: unknown,
   thumbnailValue: unknown,
+  captionValue?: unknown,
+  firstCommentValue?: unknown,
 ): Promise<ScheduledItem> {
   const { accountId, scheduledDate } = await parseScheduleFields(
     accountIdValue,
@@ -376,6 +405,8 @@ export async function createScheduledItem(
   if (thumbnail && !(await r2ObjectExists(thumbnail.path))) {
     throw new ScheduleError("Could not save that video's thumbnail.", 400);
   }
+  const caption = normalizeCaption(captionValue);
+  const firstComment = normalizeFirstComment(firstCommentValue);
 
   const now = new Date();
   try {
@@ -385,6 +416,8 @@ export async function createScheduledItem(
       video,
       thumbnail,
       scheduledDate,
+      caption,
+      firstComment,
       posted: false,
       createdAt: now,
       updatedAt: now,
@@ -395,6 +428,8 @@ export async function createScheduledItem(
       video,
       thumbnail,
       scheduledDate: scheduledDate.toISOString(),
+      caption,
+      firstComment,
       posted: false,
     };
   } catch (error) {
@@ -410,6 +445,8 @@ export async function updateScheduledItem(
   rawId: string,
   accountIdValue: unknown,
   scheduledDateValue: unknown,
+  captionValue?: unknown,
+  firstCommentValue?: unknown,
 ): Promise<ScheduledItem> {
   const id = parseId(rawId);
   if (!id) {
@@ -420,10 +457,22 @@ export async function updateScheduledItem(
     scheduledDateValue,
   );
 
+  const update: Partial<ScheduledItemDoc> & { updatedAt: Date } = {
+    accountId,
+    scheduledDate,
+    updatedAt: new Date(),
+  };
+  if (captionValue !== undefined) {
+    update.caption = normalizeCaption(captionValue);
+  }
+  if (firstCommentValue !== undefined) {
+    update.firstComment = normalizeFirstComment(firstCommentValue);
+  }
+
   const collection = await scheduleCollection();
   const result = await collection.findOneAndUpdate(
     { _id: id },
-    { $set: { accountId, scheduledDate, updatedAt: new Date() } },
+    { $set: update },
     { returnDocument: "after" },
   );
   if (!result) {

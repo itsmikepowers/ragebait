@@ -28,6 +28,8 @@ export type ScheduledItem = {
   video: MediaRef;
   thumbnail: MediaRef | null;
   scheduledDate: string;
+  caption: string;
+  firstComment: string;
   posted: boolean;
 };
 

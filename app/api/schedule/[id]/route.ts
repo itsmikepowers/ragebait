@@ -28,6 +28,8 @@ export async function PATCH(
       id,
       body?.accountId,
       body?.scheduledDate,
+      body?.caption,
+      body?.firstComment,
     );
     return Response.json({ item });
   } catch (error) {

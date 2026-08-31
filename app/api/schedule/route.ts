@@ -38,6 +38,8 @@ export async function POST(request: Request) {
       body?.accountId,
       body?.video,
       body?.thumbnail,
+      body?.caption,
+      body?.firstComment,
     );
     return Response.json({ item }, { status: 201 });
   } catch (error) {
