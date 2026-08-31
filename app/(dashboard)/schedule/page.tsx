@@ -395,17 +395,21 @@ function ScheduleFields({
           value={accountId || undefined}
           onValueChange={onAccountIdChange}
         >
-          <SelectTrigger id={`${idPrefix}-account`} className="w-full">
+          <SelectTrigger id={`${idPrefix}-account`} className="h-11 w-full">
             <SelectValue placeholder="Pick an account" />
           </SelectTrigger>
           <SelectContent position="popper" align="start" className="z-[60]">
             {accounts.map((account) => (
-              <SelectItem key={account.id} value={account.id}>
+              <SelectItem
+                key={account.id}
+                value={account.id}
+                className="gap-3 py-2"
+              >
                 <AccountLogoThumb
                   logo={account.logo}
                   name={account.name}
-                  size={20}
-                  className="rounded-[5px]"
+                  size={28}
+                  className="rounded-md"
                 />
                 {account.name}
               </SelectItem>
