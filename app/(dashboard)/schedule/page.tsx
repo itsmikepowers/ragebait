@@ -34,17 +34,16 @@ import { cn } from "@/lib/utils";
 import { AccountLogoThumb } from "@/components/account-logo";
 import { MediaThumb } from "@/components/media-thumb";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useDashboardData,
+  type Account,
+  type ScheduledItem as SharedScheduledItem,
+} from "@/lib/dashboard-data";
 
 type AccountLogo = {
   path: string;
   width: number;
   height: number;
-};
-
-type Account = {
-  id: string;
-  name: string;
-  logo: AccountLogo | null;
 };
 
 type ScheduledVideo = {
@@ -59,14 +58,7 @@ type ScheduledThumbnail = {
   height: number;
 };
 
-type ScheduledItem = {
-  id: string;
-  accountId: string;
-  video: ScheduledVideo;
-  thumbnail: ScheduledThumbnail | null;
-  scheduledDate: string;
-  posted: boolean;
-};
+type ScheduledItem = SharedScheduledItem;
 
 type ScheduleDraft = {
   accountId: string;
@@ -488,8 +480,22 @@ function FileDrop({
 }
 
 export default function SchedulePage() {
-  const [items, setItems] = useState<ScheduledItem[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { schedule: scheduleResource, accounts: accountsResource } =
+    useDashboardData();
+  const {
+    data: items,
+    loading: scheduleLoading,
+    error: scheduleLoadError,
+    load: loadSchedule,
+    set: setItems,
+  } = scheduleResource;
+  const {
+    data: accounts,
+    loading: accountsLoading,
+    error: accountsLoadError,
+    load: loadAccounts,
+  } = accountsResource;
+  const loading = scheduleLoading || accountsLoading;
   const [draft, setDraft] = useState<ScheduleDraft>(emptyDraft);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -498,38 +504,20 @@ export default function SchedulePage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeItem, setRemoveItem] = useState<ScheduledItem | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/schedule").then(async (response) => {
-        const data = (await response.json()) as {
-          items?: ScheduledItem[];
-          error?: string;
-        };
-        if (!response.ok) {
-          throw new Error(data.error || "Could not load schedule.");
-        }
-        setItems(data.items ?? []);
-      }),
-      fetch("/api/accounts").then(async (response) => {
-        const data = (await response.json()) as {
-          accounts?: Account[];
-          error?: string;
-        };
-        if (!response.ok) {
-          throw new Error(data.error || "Could not load accounts.");
-        }
-        setAccounts(data.accounts ?? []);
-      }),
-    ])
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Could not load schedule.");
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    loadSchedule();
+    loadAccounts();
+  }, [loadSchedule, loadAccounts]);
+
+  useEffect(() => {
+    const message = scheduleLoadError || accountsLoadError;
+    if (message) {
+      setError(message);
+    }
+  }, [scheduleLoadError, accountsLoadError]);
 
   function onAddOpenChange(next: boolean) {
     setAddOpen(next);
@@ -767,11 +755,11 @@ export default function SchedulePage() {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2.5">
                           <Skeleton className="size-8 rounded-lg" />
-                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-5 w-24" />
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-5 w-28" />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">

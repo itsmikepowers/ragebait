@@ -23,18 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useDashboardData, type Account } from "@/lib/dashboard-data";
 
 type AccountLogo = {
   path: string;
   width: number;
   height: number;
-};
-
-type Account = {
-  id: string;
-  name: string;
-  username: string;
-  logo: AccountLogo | null;
 };
 
 type AccountDraft = {
@@ -234,7 +228,9 @@ function AccountFields({
 }
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { accounts: accountsResource } = useDashboardData();
+  const { data: accounts, loading, error: loadError, load, set: setAccounts } =
+    accountsResource;
   const [draft, setDraft] = useState<AccountDraft>(emptyDraft);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -243,27 +239,16 @@ export default function AccountsPage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeAccount, setRemoveAccount] = useState<Account | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  async function loadAccounts() {
-    const response = await fetch("/api/accounts");
-    const data = (await response.json()) as {
-      accounts?: Account[];
-      error?: string;
-    };
-    if (!response.ok) {
-      throw new Error(data.error || "Could not load accounts.");
-    }
-    setAccounts(data.accounts ?? []);
-  }
 
   useEffect(() => {
-    loadAccounts()
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Could not load accounts.");
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (loadError) {
+      setError(loadError);
+    }
+  }, [loadError]);
 
   function onAddOpenChange(next: boolean) {
     setAddOpen(next);
@@ -425,11 +410,11 @@ export default function AccountsPage() {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2.5">
                           <Skeleton className="size-8 rounded-lg" />
-                          <Skeleton className="h-4 w-28" />
+                          <Skeleton className="h-5 w-28" />
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-5 w-20" />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
