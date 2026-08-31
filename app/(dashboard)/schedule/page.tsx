@@ -2,7 +2,7 @@
 
 import { DragEvent, FormEvent, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { LuFileVideo, LuPencil, LuTrash2, LuUpload } from "react-icons/lu";
+import { LuFileVideo, LuPencil, LuUpload } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -838,19 +838,6 @@ export default function SchedulePage() {
                             >
                               <LuPencil />
                             </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Remove ${label}`}
-                              onClick={() => {
-                                setError("");
-                                setRemoveItem(item);
-                                setRemoveOpen(true);
-                              }}
-                            >
-                              <LuTrash2 />
-                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -886,6 +873,23 @@ export default function SchedulePage() {
               <p className="text-sm text-muted-foreground">{error}</p>
             ) : null}
             <DialogFooter>
+              <Button
+                type="button"
+                variant="destructive"
+                className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/40 dark:bg-destructive dark:hover:bg-destructive/90"
+                disabled={saving}
+                onClick={() => {
+                  if (!editItem) {
+                    return;
+                  }
+                  setError("");
+                  setRemoveItem(editItem);
+                  setEditOpen(false);
+                  setRemoveOpen(true);
+                }}
+              >
+                Delete
+              </Button>
               <Button
                 type="submit"
                 disabled={

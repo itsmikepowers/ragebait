@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { LuImagePlus, LuPencil, LuTrash2 } from "react-icons/lu";
+import { LuImagePlus, LuPencil } from "react-icons/lu";
 import { AccountLogoThumb } from "@/components/account-logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -460,19 +460,6 @@ export default function AccountsPage() {
                           >
                             <LuPencil />
                           </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Remove ${account.name}`}
-                            onClick={() => {
-                              setError("");
-                              setRemoveAccount(account);
-                              setRemoveOpen(true);
-                            }}
-                          >
-                            <LuTrash2 />
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -500,6 +487,22 @@ export default function AccountsPage() {
               <p className="text-sm text-muted-foreground">{error}</p>
             ) : null}
             <DialogFooter>
+              <Button
+                type="button"
+                variant="destructive"
+                className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/40 dark:bg-destructive dark:hover:bg-destructive/90"
+                onClick={() => {
+                  if (!editAccount) {
+                    return;
+                  }
+                  setError("");
+                  setRemoveAccount(editAccount);
+                  setEditOpen(false);
+                  setRemoveOpen(true);
+                }}
+              >
+                Delete
+              </Button>
               <Button
                 type="submit"
                 disabled={!editDraft.name.trim() || !editDraft.username.trim()}
