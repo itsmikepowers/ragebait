@@ -3,7 +3,7 @@
 import { DragEvent, FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
-import { LuFileVideo, LuPencil, LuPlay, LuUpload } from "react-icons/lu";
+import { LuFileVideo, LuPlay, LuUpload } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -817,9 +817,6 @@ export default function SchedulePage() {
                 <TableHead>Video</TableHead>
                 <TableHead>Account</TableHead>
                 <TableHead>Scheduled</TableHead>
-                <TableHead className="w-0 text-right">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -837,11 +834,6 @@ export default function SchedulePage() {
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-28" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Skeleton className="size-7 rounded-md" />
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -900,22 +892,6 @@ export default function SchedulePage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{label}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Edit ${label}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openEditor(item);
-                              }}
-                            >
-                              <LuPencil />
-                            </Button>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
