@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       body?.thumbnail,
       body?.caption,
       body?.firstComment,
+      body?.instagramPostUrl,
     );
     return Response.json({ item }, { status: 201 });
   } catch (error) {

@@ -30,6 +30,7 @@ export async function PATCH(
       body?.scheduledDate,
       body?.caption,
       body?.firstComment,
+      body?.instagramPostUrl,
     );
     return Response.json({ item });
   } catch (error) {

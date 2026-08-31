@@ -30,6 +30,7 @@ export type ScheduledItem = {
   scheduledDate: string;
   caption: string;
   firstComment: string;
+  instagramPostUrl: string;
   posted: boolean;
 };
 

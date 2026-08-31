@@ -3,7 +3,7 @@
 import { DragEvent, FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
-import { LuFileVideo, LuPlay, LuUpload } from "react-icons/lu";
+import { LuFileVideo, LuInstagram, LuPlay, LuUpload } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,6 +67,7 @@ type ScheduleDraft = {
   file: File | null;
   caption: string;
   firstComment: string;
+  instagramPostUrl: string;
 };
 
 const emptyDraft: ScheduleDraft = {
@@ -75,6 +76,7 @@ const emptyDraft: ScheduleDraft = {
   file: null,
   caption: "",
   firstComment: "",
+  instagramPostUrl: "",
 };
 
 const MP4_MAX_BYTES = 100 * 1024 * 1024;
@@ -374,10 +376,12 @@ function ScheduleFields({
   scheduledDate,
   caption,
   firstComment,
+  instagramPostUrl,
   onAccountIdChange,
   onScheduledDateChange,
   onCaptionChange,
   onFirstCommentChange,
+  onInstagramPostUrlChange,
 }: {
   idPrefix: string;
   accounts: Account[];
@@ -385,10 +389,12 @@ function ScheduleFields({
   scheduledDate?: Date;
   caption: string;
   firstComment: string;
+  instagramPostUrl: string;
   onAccountIdChange: (accountId: string) => void;
   onScheduledDateChange: (scheduledDate: Date | undefined) => void;
   onCaptionChange: (caption: string) => void;
   onFirstCommentChange: (firstComment: string) => void;
+  onInstagramPostUrlChange: (instagramPostUrl: string) => void;
 }) {
   return (
     <div className="grid gap-3">
@@ -451,6 +457,17 @@ function ScheduleFields({
           maxLength={2200}
           rows={2}
           className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label htmlFor={`${idPrefix}-ig-url`}>Instagram post URL</label>
+        <input
+          id={`${idPrefix}-ig-url`}
+          type="url"
+          value={instagramPostUrl}
+          onChange={(event) => onInstagramPostUrlChange(event.target.value)}
+          placeholder="https://www.instagram.com/p/..."
+          className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
         />
       </div>
     </div>
@@ -602,6 +619,7 @@ export default function SchedulePage() {
       file: null,
       caption: item.caption ?? "",
       firstComment: item.firstComment ?? "",
+      instagramPostUrl: item.instagramPostUrl ?? "",
     });
     setEditOpen(true);
   }
@@ -643,6 +661,7 @@ export default function SchedulePage() {
           thumbnail,
           caption: draft.caption,
           firstComment: draft.firstComment,
+          instagramPostUrl: draft.instagramPostUrl,
         }),
       });
       const data = await readApiJson<{
@@ -688,6 +707,7 @@ export default function SchedulePage() {
           scheduledDate: selectedDateTimeToIso(editDraft.scheduledDate),
           caption: editDraft.caption,
           firstComment: editDraft.firstComment,
+          instagramPostUrl: editDraft.instagramPostUrl,
         }),
       });
       const data = (await response.json()) as {
@@ -754,6 +774,7 @@ export default function SchedulePage() {
                   scheduledDate={draft.scheduledDate}
                   caption={draft.caption}
                   firstComment={draft.firstComment}
+                  instagramPostUrl={draft.instagramPostUrl}
                   onAccountIdChange={(accountId) =>
                     setDraft({ ...draft, accountId })
                   }
@@ -765,6 +786,9 @@ export default function SchedulePage() {
                   }
                   onFirstCommentChange={(firstComment) =>
                     setDraft({ ...draft, firstComment })
+                  }
+                  onInstagramPostUrlChange={(instagramPostUrl) =>
+                    setDraft({ ...draft, instagramPostUrl })
                   }
                 />
                 <div className="grid gap-1.5">
@@ -817,6 +841,9 @@ export default function SchedulePage() {
                 <TableHead>Video</TableHead>
                 <TableHead>Account</TableHead>
                 <TableHead>Scheduled</TableHead>
+                <TableHead className="w-0 text-right">
+                  <span className="sr-only">Links</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -835,6 +862,7 @@ export default function SchedulePage() {
                       <TableCell>
                         <Skeleton className="h-5 w-28" />
                       </TableCell>
+                      <TableCell />
                     </TableRow>
                   ))
                 : items.map((item) => {
@@ -892,6 +920,26 @@ export default function SchedulePage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{label}</TableCell>
+                        <TableCell className="w-0 text-right">
+                          {item.instagramPostUrl ? (
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Open on Instagram"
+                              title="Open on Instagram"
+                            >
+                              <a
+                                href={item.instagramPostUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <LuInstagram />
+                              </a>
+                            </Button>
+                          ) : null}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -988,6 +1036,18 @@ export default function SchedulePage() {
           </div>
 
           <DialogFooter showCloseButton>
+            {viewItem?.instagramPostUrl ? (
+              <Button asChild variant="outline">
+                <a
+                  href={viewItem.instagramPostUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <LuInstagram />
+                  View on Instagram
+                </a>
+              </Button>
+            ) : null}
             <Button
               type="button"
               onClick={() => {
@@ -1022,6 +1082,7 @@ export default function SchedulePage() {
               scheduledDate={editDraft.scheduledDate}
               caption={editDraft.caption}
               firstComment={editDraft.firstComment}
+              instagramPostUrl={editDraft.instagramPostUrl}
               onAccountIdChange={(accountId) =>
                 setEditDraft({ ...editDraft, accountId })
               }
@@ -1033,6 +1094,9 @@ export default function SchedulePage() {
               }
               onFirstCommentChange={(firstComment) =>
                 setEditDraft({ ...editDraft, firstComment })
+              }
+              onInstagramPostUrlChange={(instagramPostUrl) =>
+                setEditDraft({ ...editDraft, instagramPostUrl })
               }
             />
             {error ? (
@@ -1067,7 +1131,9 @@ export default function SchedulePage() {
                     selectedDateTimeToIso(editDraft.scheduledDate) ===
                       selectedDateTimeToIso(new Date(editItem.scheduledDate)) &&
                     editDraft.caption === (editItem.caption ?? "") &&
-                    editDraft.firstComment === (editItem.firstComment ?? ""))
+                    editDraft.firstComment === (editItem.firstComment ?? "") &&
+                    editDraft.instagramPostUrl ===
+                      (editItem.instagramPostUrl ?? ""))
                 }
               >
                 {saving ? "Saving" : "Save"}

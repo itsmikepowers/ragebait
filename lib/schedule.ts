@@ -31,6 +31,7 @@ export type ScheduledItem = {
   scheduledDate: string;
   caption: string;
   firstComment: string;
+  instagramPostUrl: string;
   posted: boolean;
 };
 
@@ -40,6 +41,7 @@ export type PublicScheduledPost = {
   url: string | null;
   caption: string;
   firstComment: string;
+  instagramPostUrl: string;
   posted: boolean;
 };
 
@@ -50,6 +52,7 @@ type ScheduledItemDoc = {
   scheduledDate: Date;
   caption?: string;
   firstComment?: string;
+  instagramPostUrl?: string;
   posted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -70,6 +73,29 @@ function normalizeFirstComment(value: unknown): string {
     return "";
   }
   return value.slice(0, FIRST_COMMENT_MAX);
+}
+
+/** Accepts an instagram.com post/reel URL; anything else normalizes to "". */
+function normalizeInstagramPostUrl(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return "";
+    }
+    if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) {
+      return "";
+    }
+    return trimmed.slice(0, 300);
+  } catch {
+    return "";
+  }
 }
 
 const VIDEO_FOLDER = "schedule";
@@ -156,6 +182,7 @@ function toScheduledItem(
       doc.scheduledDate instanceof Date ? doc.scheduledDate.toISOString() : "",
     caption: doc.caption ?? "",
     firstComment: doc.firstComment ?? "",
+    instagramPostUrl: doc.instagramPostUrl ?? "",
     posted: doc.posted === true,
   };
 }
@@ -236,6 +263,7 @@ export async function getTodaysPublicPost(
     url: buildCdnUrl(item.video.path),
     caption: item.caption,
     firstComment: item.firstComment,
+    instagramPostUrl: item.instagramPostUrl,
     posted: item.posted,
   };
 }
@@ -388,6 +416,7 @@ export async function createScheduledItem(
   thumbnailValue: unknown,
   captionValue?: unknown,
   firstCommentValue?: unknown,
+  instagramPostUrlValue?: unknown,
 ): Promise<ScheduledItem> {
   const { accountId, scheduledDate } = await parseScheduleFields(
     accountIdValue,
@@ -409,6 +438,7 @@ export async function createScheduledItem(
   }
   const caption = normalizeCaption(captionValue);
   const firstComment = normalizeFirstComment(firstCommentValue);
+  const instagramPostUrl = normalizeInstagramPostUrl(instagramPostUrlValue);
 
   const now = new Date();
   try {
@@ -420,6 +450,7 @@ export async function createScheduledItem(
       scheduledDate,
       caption,
       firstComment,
+      instagramPostUrl,
       posted: false,
       createdAt: now,
       updatedAt: now,
@@ -432,6 +463,7 @@ export async function createScheduledItem(
       scheduledDate: scheduledDate.toISOString(),
       caption,
       firstComment,
+      instagramPostUrl,
       posted: false,
     };
   } catch (error) {
@@ -449,6 +481,7 @@ export async function updateScheduledItem(
   scheduledDateValue: unknown,
   captionValue?: unknown,
   firstCommentValue?: unknown,
+  instagramPostUrlValue?: unknown,
 ): Promise<ScheduledItem> {
   const id = parseId(rawId);
   if (!id) {
@@ -469,6 +502,9 @@ export async function updateScheduledItem(
   }
   if (firstCommentValue !== undefined) {
     update.firstComment = normalizeFirstComment(firstCommentValue);
+  }
+  if (instagramPostUrlValue !== undefined) {
+    update.instagramPostUrl = normalizeInstagramPostUrl(instagramPostUrlValue);
   }
 
   const collection = await scheduleCollection();
