@@ -863,30 +863,40 @@ export default function SchedulePage() {
                     return (
                       <TableRow key={item.id}>
                         <TableCell>
-                          {item.thumbnail ? (
-                            <a
-                              href={src ?? undefined}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex w-fit"
-                            >
-                              <MediaThumb
-                                media={item.thumbnail}
-                                fallbackLabel={accountName}
-                                size={56}
-                                className="rounded-md"
+                          <div className="flex items-center gap-3">
+                            {item.thumbnail ? (
+                              <a
+                                href={src ?? undefined}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex w-fit"
+                              >
+                                <MediaThumb
+                                  media={item.thumbnail}
+                                  fallbackLabel={accountName}
+                                  size={56}
+                                  className="rounded-md"
+                                />
+                              </a>
+                            ) : src ? (
+                              <video
+                                className="h-14 w-14 shrink-0 rounded-md bg-black/5 object-cover"
+                                src={src}
+                                controls
+                                preload="metadata"
                               />
-                            </a>
-                          ) : src ? (
-                            <video
-                              className="h-14 w-14 rounded-md bg-black/5 object-cover"
-                              src={src}
-                              controls
-                              preload="metadata"
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">{item.video.path}</span>
-                          )}
+                            ) : (
+                              <span className="text-muted-foreground">{item.video.path}</span>
+                            )}
+                            {item.caption ? (
+                              <p
+                                className="line-clamp-2 max-w-[22rem] text-sm whitespace-normal text-muted-foreground"
+                                title={item.caption}
+                              >
+                                {item.caption}
+                              </p>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2.5">
