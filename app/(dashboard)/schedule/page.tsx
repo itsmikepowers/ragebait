@@ -367,24 +367,6 @@ function isoToLocalDate(iso: string): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function timeStringFromDate(date?: Date): string {
-  if (!date) {
-    return "12:00";
-  }
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-function applyTimeString(date: Date, time: string): Date {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
-  const next = new Date(date);
-  if (match) {
-    next.setHours(Number(match[1]), Number(match[2]), 0, 0);
-  }
-  return next;
-}
-
 function ScheduleFields({
   idPrefix,
   accounts,
@@ -440,31 +422,12 @@ function ScheduleFields({
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${idPrefix}-date`}>Scheduled date &amp; time</label>
-        <div className="flex gap-2">
-          <DatePicker
-            id={`${idPrefix}-date`}
-            date={scheduledDate}
-            onChange={(nextDate) => {
-              if (!nextDate) {
-                onScheduledDateChange(undefined);
-                return;
-              }
-              const time = timeStringFromDate(scheduledDate);
-              onScheduledDateChange(applyTimeString(nextDate, time));
-            }}
-          />
-          <input
-            id={`${idPrefix}-time`}
-            type="time"
-            aria-label="Scheduled time"
-            value={timeStringFromDate(scheduledDate)}
-            onChange={(event) => {
-              const base = scheduledDate ?? new Date();
-              onScheduledDateChange(applyTimeString(base, event.target.value));
-            }}
-            className="h-11 w-32 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-          />
-        </div>
+        <DatePicker
+          id={`${idPrefix}-date`}
+          date={scheduledDate}
+          withTime
+          onChange={onScheduledDateChange}
+        />
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${idPrefix}-caption`}>Caption</label>
