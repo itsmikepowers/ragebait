@@ -962,25 +962,13 @@ export default function SchedulePage() {
       )}
 
       <Dialog open={viewOpen} onOpenChange={onViewOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {viewItem
-                ? (accounts.find((account) => account.id === viewItem.accountId)
-                    ?.name ?? "Scheduled post")
-                : "Scheduled post"}
-            </DialogTitle>
-            <DialogDescription>
-              {viewItem ? formatScheduledDate(viewItem.scheduledDate) : null}
-            </DialogDescription>
-          </DialogHeader>
-
-          {viewItem ? (
-            <div className="grid gap-4">
-              <div className="relative overflow-hidden rounded-lg bg-black">
-                {viewPlaying ? (
+        <DialogContent className="sm:max-w-3xl">
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+            <div className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black">
+              {viewItem ? (
+                viewPlaying ? (
                   <video
-                    className="max-h-[60vh] w-full object-contain"
+                    className="max-h-[65vh] w-full object-contain"
                     src={buildCdnUrl(viewItem.video.path) ?? undefined}
                     controls
                     autoPlay
@@ -1000,7 +988,7 @@ export default function SchedulePage() {
                         width={viewItem.thumbnail.width}
                         height={viewItem.thumbnail.height}
                         unoptimized
-                        className="max-h-[60vh] w-full object-contain"
+                        className="max-h-[65vh] w-full object-contain"
                       />
                     ) : (
                       <div className="flex aspect-square w-full items-center justify-center text-sm text-white/60">
@@ -1013,35 +1001,52 @@ export default function SchedulePage() {
                       </span>
                     </span>
                   </button>
-                )}
-              </div>
-
-              <div className="grid gap-3">
-                <div className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Caption
-                  </span>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {viewItem.caption || (
-                      <span className="text-muted-foreground">No caption</span>
-                    )}
-                  </p>
-                </div>
-                <div className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    First comment
-                  </span>
-                  <p className="text-sm break-words whitespace-pre-wrap">
-                    {viewItem.firstComment || (
-                      <span className="text-muted-foreground">
-                        No first comment
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
+                )
+              ) : null}
             </div>
-          ) : null}
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <DialogHeader className="pr-8">
+                <DialogTitle>
+                  {viewItem
+                    ? (accounts.find(
+                        (account) => account.id === viewItem.accountId,
+                      )?.name ?? "Scheduled post")
+                    : "Scheduled post"}
+                </DialogTitle>
+                <DialogDescription>
+                  {viewItem ? formatScheduledDate(viewItem.scheduledDate) : null}
+                </DialogDescription>
+              </DialogHeader>
+
+              {viewItem ? (
+                <div className="grid max-h-[55vh] gap-3 overflow-y-auto">
+                  <div className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Caption
+                    </span>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {viewItem.caption || (
+                        <span className="text-muted-foreground">No caption</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      First comment
+                    </span>
+                    <p className="text-sm break-words whitespace-pre-wrap">
+                      {viewItem.firstComment || (
+                        <span className="text-muted-foreground">
+                          No first comment
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
 
           <DialogFooter showCloseButton>
             <Button
