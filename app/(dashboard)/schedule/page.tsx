@@ -401,6 +401,12 @@ function ScheduleFields({
           <SelectContent position="popper" align="start" className="z-[60]">
             {accounts.map((account) => (
               <SelectItem key={account.id} value={account.id}>
+                <AccountLogoThumb
+                  logo={account.logo}
+                  name={account.name}
+                  size={20}
+                  className="rounded-[5px]"
+                />
                 {account.name}
               </SelectItem>
             ))}
