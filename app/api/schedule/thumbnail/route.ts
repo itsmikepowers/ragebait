@@ -1,8 +1,4 @@
-import {
-  ScheduleError,
-  createScheduledItem,
-  listScheduledItems,
-} from "@/lib/schedule";
+import { ScheduleError, createScheduleThumbnailUpload } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -16,33 +12,19 @@ function errorResponse(error: unknown) {
     (error.message.includes("CLOUDFLARE_CONFIG") ||
       error.message.includes("Cloudflare"))
   ) {
-    return Response.json({ error: "Could not upload that video." }, { status: 500 });
+    return Response.json({ error: "Could not upload that thumbnail." }, { status: 500 });
   }
   return Response.json({ error: "Could not reach the database." }, { status: 500 });
-}
-
-export async function GET() {
-  try {
-    const items = await listScheduledItems();
-    return Response.json({ items });
-  } catch (error) {
-    return errorResponse(error);
-  }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const item = await createScheduledItem(
-      body?.scheduledDate,
-      body?.accountId,
-      body?.video,
-      body?.thumbnail,
-    );
-    return Response.json({ item }, { status: 201 });
+    const upload = await createScheduleThumbnailUpload(body?.size, body?.contentType);
+    return Response.json(upload);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return Response.json({ error: "Upload an MP4." }, { status: 400 });
+      return Response.json({ error: "Could not upload that thumbnail." }, { status: 400 });
     }
     return errorResponse(error);
   }

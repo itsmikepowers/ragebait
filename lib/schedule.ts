@@ -12,14 +12,22 @@ import {
   r2ObjectExists,
 } from "./cloudflare";
 import { getDb } from "./mongodb";
-import { type MediaRef, parseRequiredMediaRef } from "./media";
+import {
+  createImageUploadPlan,
+  type ImageUploadPlan,
+  type MediaRef,
+  parseOptionalMediaRef,
+  parseRequiredMediaRef,
+} from "./media";
 
 export type ScheduledVideo = MediaRef;
+export type ScheduledThumbnail = MediaRef;
 
 export type ScheduledItem = {
   id: string;
   accountId: string;
   video: ScheduledVideo;
+  thumbnail: ScheduledThumbnail | null;
   scheduledDate: string;
   posted: boolean;
 };
@@ -34,6 +42,7 @@ export type PublicScheduledPost = {
 type ScheduledItemDoc = {
   accountId: ObjectId;
   video: ScheduledVideo;
+  thumbnail?: ScheduledThumbnail | null;
   scheduledDate: Date;
   posted: boolean;
   createdAt: Date;
@@ -41,10 +50,14 @@ type ScheduledItemDoc = {
 };
 
 const VIDEO_FOLDER = "schedule";
+const THUMBNAIL_FOLDER = "thumbnails";
 const MP4_MAX_BYTES = 100 * 1024 * 1024;
+const THUMBNAIL_MAX_BYTES = 4 * 1024 * 1024;
 const MULTIPART_PART_BYTES = 5 * 1024 * 1024;
 const SCHEDULE_PATH_RE =
   /^schedule\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.mp4$/i;
+const THUMBNAIL_PATH_RE =
+  /^thumbnails\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpe?g|webp|gif)$/i;
 
 export type ScheduleUploadPart = {
   partNumber: number;
@@ -106,6 +119,7 @@ function toScheduledItem(
     id: doc._id.toHexString(),
     accountId: doc.accountId?.toHexString?.() ?? "",
     video: doc.video,
+    thumbnail: doc.thumbnail ?? null,
     scheduledDate:
       doc.scheduledDate instanceof Date ? doc.scheduledDate.toISOString() : "",
     posted: doc.posted === true,
@@ -262,6 +276,30 @@ export async function createScheduleUpload(
   };
 }
 
+/** Presigned-PUT plan for the auto-extracted first-frame thumbnail image. */
+export async function createScheduleThumbnailUpload(
+  sizeValue: unknown,
+  contentTypeValue: unknown,
+): Promise<ImageUploadPlan> {
+  try {
+    return await createImageUploadPlan(
+      THUMBNAIL_FOLDER,
+      sizeValue,
+      contentTypeValue,
+      THUMBNAIL_MAX_BYTES,
+      {
+        ensureCors: ensureR2BrowserUploadCors,
+        presignPut: (path) => createPresignedR2PutUrl(path),
+      },
+    );
+  } catch (error) {
+    if (error instanceof Error && "status" in error) {
+      throw new ScheduleError(error.message, (error as { status: number }).status);
+    }
+    throw error;
+  }
+}
+
 export async function completeScheduleUpload(
   pathValue: unknown,
   uploadIdValue: unknown,
@@ -318,6 +356,7 @@ export async function createScheduledItem(
   scheduledDateValue: unknown,
   accountIdValue: unknown,
   videoValue: unknown,
+  thumbnailValue: unknown,
 ): Promise<ScheduledItem> {
   const { accountId, scheduledDate } = await parseScheduleFields(
     accountIdValue,
@@ -330,6 +369,13 @@ export async function createScheduledItem(
   if (!(await r2ObjectExists(video.path))) {
     throw new ScheduleError("Could not upload that video.", 400);
   }
+  const thumbnail = parseOptionalMediaRef(thumbnailValue, THUMBNAIL_PATH_RE);
+  if (thumbnail === undefined) {
+    throw new ScheduleError("Could not save that video's thumbnail.", 400);
+  }
+  if (thumbnail && !(await r2ObjectExists(thumbnail.path))) {
+    throw new ScheduleError("Could not save that video's thumbnail.", 400);
+  }
 
   const now = new Date();
   try {
@@ -337,6 +383,7 @@ export async function createScheduledItem(
     const result = await collection.insertOne({
       accountId,
       video,
+      thumbnail,
       scheduledDate,
       posted: false,
       createdAt: now,
@@ -346,11 +393,15 @@ export async function createScheduledItem(
       id: result.insertedId.toHexString(),
       accountId: accountId.toHexString(),
       video,
+      thumbnail,
       scheduledDate: scheduledDate.toISOString(),
       posted: false,
     };
   } catch (error) {
     await deleteFileFromCloudflare(video.path).catch(() => undefined);
+    if (thumbnail) {
+      await deleteFileFromCloudflare(thumbnail.path).catch(() => undefined);
+    }
     throw error;
   }
 }
@@ -394,5 +445,8 @@ export async function deleteScheduledItem(rawId: string): Promise<void> {
   }
 
   await deleteFileFromCloudflare(doc.video.path);
+  if (doc.thumbnail) {
+    await deleteFileFromCloudflare(doc.thumbnail.path).catch(() => undefined);
+  }
   await collection.deleteOne({ _id: id });
 }

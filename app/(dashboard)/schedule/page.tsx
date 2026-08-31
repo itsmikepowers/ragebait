@@ -32,6 +32,7 @@ import {
 import { buildCdnUrl } from "@/lib/cdn";
 import { cn } from "@/lib/utils";
 import { AccountLogoThumb } from "@/components/account-logo";
+import { MediaThumb } from "@/components/media-thumb";
 
 type AccountLogo = {
   path: string;
@@ -51,10 +52,17 @@ type ScheduledVideo = {
   height: number;
 };
 
+type ScheduledThumbnail = {
+  path: string;
+  width: number;
+  height: number;
+};
+
 type ScheduledItem = {
   id: string;
   accountId: string;
   video: ScheduledVideo;
+  thumbnail: ScheduledThumbnail | null;
   scheduledDate: string;
   posted: boolean;
 };
@@ -163,11 +171,97 @@ function readVideoDimensions(file: File): Promise<{ width: number; height: numbe
   });
 }
 
+/** Draws the video's first frame onto a canvas and returns it as a JPEG blob. */
+function captureFirstFrame(
+  file: File,
+): Promise<{ blob: Blob; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+
+    function cleanup() {
+      URL.revokeObjectURL(url);
+      video.removeAttribute("src");
+      video.load();
+    }
+
+    video.onloadeddata = () => {
+      // Nudge to the very first frame; on some codecs frame 0 isn't decoded
+      // until a seek is requested.
+      try {
+        video.currentTime = 0;
+      } catch {
+        // ignore
+      }
+    };
+
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        cleanup();
+        reject(new Error("Could not read that video."));
+        return;
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          cleanup();
+          if (!blob) {
+            reject(new Error("Could not read that video."));
+            return;
+          }
+          resolve({ blob, width: canvas.width, height: canvas.height });
+        },
+        "image/jpeg",
+        0.85,
+      );
+    };
+
+    video.onerror = () => {
+      cleanup();
+      reject(new Error("Could not read that video."));
+    };
+
+    video.src = url;
+  });
+}
+
+async function uploadThumbnail(
+  blob: Blob,
+  width: number,
+  height: number,
+): Promise<ScheduledThumbnail> {
+  const planResponse = await fetch("/api/schedule/thumbnail", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ size: blob.size, contentType: "image/jpeg" }),
+  });
+  const plan = await readApiJson<{
+    path?: string;
+    uploadUrl?: string;
+    error?: string;
+  }>(planResponse);
+  if (!planResponse.ok || !plan.path || !plan.uploadUrl) {
+    throw new Error(plan.error || "Could not upload that video's thumbnail.");
+  }
+  await putBlob(plan.uploadUrl, blob);
+  return { path: plan.path, width, height };
+}
+
 async function uploadFileToR2(
   file: File,
   onProgress: (percent: number) => void,
-): Promise<ScheduledVideo> {
+): Promise<{ video: ScheduledVideo; thumbnail: ScheduledThumbnail | null }> {
   const dimensionsPromise = readVideoDimensions(file);
+  const thumbnailPromise = captureFirstFrame(file)
+    .then(({ blob, width, height }) => uploadThumbnail(blob, width, height))
+    .catch(() => null);
   const uploadResponse = await fetch("/api/schedule/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -221,7 +315,8 @@ async function uploadFileToR2(
       }
       onProgress(100);
       const { width, height } = await dimensionsPromise;
-      return { path: completeData.path, width, height };
+      const thumbnail = await thumbnailPromise;
+      return { video: { path: completeData.path, width, height }, thumbnail };
     } catch (error) {
       await fetch("/api/schedule/upload/abort", {
         method: "POST",
@@ -240,7 +335,8 @@ async function uploadFileToR2(
   });
   onProgress(100);
   const { width, height } = await dimensionsPromise;
-  return { path: plan.path, width, height };
+  const thumbnail = await thumbnailPromise;
+  return { video: { path: plan.path, width, height }, thumbnail };
 }
 
 function selectedDateToUtcDay(date: Date): string {
@@ -472,7 +568,7 @@ export default function SchedulePage() {
     setSaving(true);
     setUploadPercent(0);
     try {
-      const video = await uploadFileToR2(draft.file, setUploadPercent);
+      const { video, thumbnail } = await uploadFileToR2(draft.file, setUploadPercent);
       const response = await fetch("/api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -480,6 +576,7 @@ export default function SchedulePage() {
           accountId: draft.accountId,
           scheduledDate: selectedDateToUtcDay(draft.scheduledDate),
           video,
+          thumbnail,
         }),
       });
       const data = await readApiJson<{
@@ -678,9 +775,23 @@ export default function SchedulePage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{label}</TableCell>
                     <TableCell>
-                      {src ? (
+                      {item.thumbnail ? (
+                        <a
+                          href={src ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block"
+                        >
+                          <MediaThumb
+                            media={item.thumbnail}
+                            fallbackLabel={accountName}
+                            size={56}
+                            className="rounded-md"
+                          />
+                        </a>
+                      ) : src ? (
                         <video
-                          className="h-16 rounded-md bg-black/5"
+                          className="h-14 w-14 rounded-md bg-black/5 object-cover"
                           src={src}
                           controls
                           preload="metadata"

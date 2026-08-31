@@ -6,8 +6,12 @@ import {
   r2ObjectExists,
 } from "./cloudflare";
 import { getDb } from "./mongodb";
-import { type MediaRef, parseOptionalMediaRef } from "./media";
-import { randomUUID } from "crypto";
+import {
+  createImageUploadPlan,
+  type ImageUploadPlan,
+  type MediaRef,
+  parseOptionalMediaRef,
+} from "./media";
 
 export type AccountLogo = MediaRef;
 
@@ -37,13 +41,6 @@ const USERNAME_MAX = 80;
 
 const LOGO_FOLDER = "logos";
 const LOGO_MAX_BYTES = 8 * 1024 * 1024;
-const LOGO_ALLOWED_EXT: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
 const LOGO_PATH_RE =
   /^logos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpe?g|webp|gif)$/i;
 
@@ -250,37 +247,29 @@ export async function deleteAccount(rawId: string): Promise<void> {
   }
 }
 
-export type AccountLogoUploadPlan = {
-  path: string;
-  uploadUrl: string;
-};
+export type AccountLogoUploadPlan = ImageUploadPlan;
 
 export async function createAccountLogoUpload(
   sizeValue: unknown,
   contentTypeValue: unknown,
 ): Promise<AccountLogoUploadPlan> {
-  const size =
-    typeof sizeValue === "number"
-      ? sizeValue
-      : typeof sizeValue === "string"
-        ? Number(sizeValue)
-        : NaN;
-  if (!Number.isFinite(size) || size <= 0) {
-    throw new AccountError("Upload an image.", 400);
+  try {
+    return await createImageUploadPlan(
+      LOGO_FOLDER,
+      sizeValue,
+      contentTypeValue,
+      LOGO_MAX_BYTES,
+      {
+        ensureCors: ensureR2BrowserUploadCors,
+        presignPut: (path) => createPresignedR2PutUrl(path),
+      },
+    );
+  } catch (error) {
+    if (error instanceof Error && "status" in error) {
+      throw new AccountError(error.message, (error as { status: number }).status);
+    }
+    throw error;
   }
-  if (size > LOGO_MAX_BYTES) {
-    throw new AccountError("That image is too large.", 400);
-  }
-  const contentType =
-    typeof contentTypeValue === "string" ? contentTypeValue : "";
-  const ext = LOGO_ALLOWED_EXT[contentType];
-  if (!ext) {
-    throw new AccountError("Upload a PNG, JPEG, WEBP, or GIF image.", 400);
-  }
-
-  await ensureR2BrowserUploadCors();
-  const path = `${LOGO_FOLDER}/${randomUUID()}.${ext}`;
-  return { path, uploadUrl: createPresignedR2PutUrl(path) };
 }
 
 export class AccountError extends Error {
