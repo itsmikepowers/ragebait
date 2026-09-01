@@ -49,6 +49,17 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+/** Position within the source video. Unlike a duration, 0 is meaningful here. */
+function formatTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0)
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function formatBytes(bytes: number): string {
   if (!bytes) return "—";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -318,7 +329,7 @@ export default function ClipsPage({
                             {clip.title}
                           </span>
                           <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                            @{formatDuration(clip.clipStart)} ·{" "}
+                            @{formatTimestamp(clip.clipStart)} ·{" "}
                             {formatBytes(clip.sizeBytes)}
                           </span>
                         </span>
@@ -351,7 +362,7 @@ export default function ClipsPage({
                 <DialogTitle>{viewClip?.title ?? "Clip"}</DialogTitle>
                 <DialogDescription>
                   {viewClip
-                    ? `${bucketLabel(viewClip.bucket || "other")} · starts at ${formatDuration(viewClip.clipStart)} · ${formatDuration(viewClip.durationSeconds)}`
+                    ? `${bucketLabel(viewClip.bucket || "other")} · starts at ${formatTimestamp(viewClip.clipStart)} · ${formatDuration(viewClip.durationSeconds)}`
                     : null}
                 </DialogDescription>
               </DialogHeader>
