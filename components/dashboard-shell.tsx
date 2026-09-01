@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LuCalendar, LuHouse, LuUsers } from "react-icons/lu";
+import { LuCalendar, LuHouse, LuLightbulb, LuUsers } from "react-icons/lu";
 import { Logo } from "./logo";
 
 const links = [
   { href: "/home", label: "Home", icon: LuHouse },
   { href: "/accounts", label: "Accounts", icon: LuUsers },
   { href: "/schedule", label: "Schedule", icon: LuCalendar },
+  { href: "/ideas", label: "Ideas", icon: LuLightbulb },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
