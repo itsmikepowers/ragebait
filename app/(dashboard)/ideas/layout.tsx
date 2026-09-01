@@ -72,10 +72,6 @@ export default function IdeasLayout({
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Ideas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Research by product line — reference posts worth reworking and accounts
-          worth mining.
-        </p>
       </div>
 
       <Suspense fallback={<div className="mt-4 h-24" />}>

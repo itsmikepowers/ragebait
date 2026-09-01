@@ -62,12 +62,10 @@ const RISK_STYLES: Record<string, string> = {
 export function IdeasGallery({
   kind,
   title,
-  description,
   emptyLabel,
 }: {
   kind: "content" | "account";
   title: string;
-  description: string;
   emptyLabel: string;
 }) {
   const [ideas, setIdeas] = useState<Idea[]>([]);
@@ -167,7 +165,6 @@ export function IdeasGallery({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
         <div className="flex items-center gap-2">
           {kind === "content" && categories.length > 1 ? (

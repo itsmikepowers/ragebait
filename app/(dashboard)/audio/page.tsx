@@ -601,9 +601,6 @@ export default function AudioPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Audio</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sound library for the videos — upload once, reuse anywhere.
-          </p>
         </div>
         <Dialog open={addOpen} onOpenChange={onAddOpenChange}>
           <DialogTrigger asChild>

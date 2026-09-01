@@ -7,7 +7,6 @@ export default function IdeasContentPage() {
       <IdeasGallery
         kind="content"
         title="Content ideas"
-        description="Reference posts to rework into your own products and videos."
         emptyLabel="No content ideas saved yet."
       />
     </Suspense>

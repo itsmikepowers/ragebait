@@ -798,9 +798,6 @@ export default function ClippingPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Clipping</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Long-form source videos to cut short clips out of.
-          </p>
         </div>
         <Dialog open={addOpen} onOpenChange={onAddOpenChange}>
           <DialogTrigger asChild>

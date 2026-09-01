@@ -7,7 +7,6 @@ export default function IdeasAccountsPage() {
       <IdeasGallery
         kind="account"
         title="Accounts to mine"
-        description="Instagram accounts in this niche worth pulling ideas from."
         emptyLabel="No accounts saved yet."
       />
     </Suspense>
