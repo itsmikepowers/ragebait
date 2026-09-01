@@ -210,7 +210,7 @@ export function ClipReview({
       </div>
 
       <p className="min-h-4 text-[11px] text-muted-foreground">
-        {activeSpec ? activeSpec.meaning : "5 = would post as-is · 1 = unusable"}
+        {activeSpec ? activeSpec.meaning : "1 = unusable · 5 = would post as-is"}
       </p>
 
       <label

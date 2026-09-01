@@ -20,3 +20,6 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# iCloud-safe local build dir (see next.config.ts)
+.next.nosync
