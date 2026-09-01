@@ -147,18 +147,6 @@ export default function ClipsPage({
     setViewOpen(true);
   }
 
-  // Group clips by bucket, preserving each bucket's first-seen order.
-  const buckets: { key: string; items: ClipSource[] }[] = [];
-  for (const clip of clips) {
-    const key = clip.bucket || "other";
-    let group = buckets.find((b) => b.key === key);
-    if (!group) {
-      group = { key, items: [] };
-      buckets.push(group);
-    }
-    group.items.push(clip);
-  }
-
   const poster = source ? posterSrc(source) : null;
   const videoSrc = source?.video ? buildCdnUrl(source.video.path) : null;
 
@@ -173,8 +161,8 @@ export default function ClipsPage({
       </Link>
 
       {loading ? (
-        <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-          <Skeleton className="aspect-video w-full rounded-lg" />
+        <div className="mt-5 grid gap-5 sm:grid-cols-[minmax(0,300px)_1fr]">
+          <Skeleton className="h-[170px] w-full rounded-lg" />
           <div className="grid gap-2">
             <Skeleton className="h-7 w-3/4" />
             <Skeleton className="h-5 w-1/2" />
@@ -187,11 +175,11 @@ export default function ClipsPage({
         </p>
       ) : (
         <>
-          <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+          <div className="mt-5 grid gap-5 sm:grid-cols-[minmax(0,300px)_1fr]">
             <div className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black">
               {playing && videoSrc ? (
                 <video
-                  className="max-h-[60vh] w-full object-contain"
+                  className="max-h-[170px] w-full object-contain"
                   src={videoSrc}
                   controls
                   autoPlay
@@ -211,7 +199,7 @@ export default function ClipsPage({
                     <img
                       src={poster}
                       alt=""
-                      className="max-h-[60vh] w-full object-contain"
+                      className="max-h-[170px] w-full object-contain"
                     />
                   ) : (
                     <div className="flex aspect-video w-full items-center justify-center text-sm text-white/60">
@@ -288,56 +276,46 @@ export default function ClipsPage({
                 No clips cut from this video yet.
               </p>
             ) : (
-              buckets.map((group) => (
-                <div key={group.key} className="mt-6">
-                  <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {bucketLabel(group.key)}{" "}
-                    <span className="text-muted-foreground/70">
-                      ({group.items.length})
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
+                {clips.map((clip) => (
+                  <button
+                    key={clip.id}
+                    type="button"
+                    onClick={() => openClip(clip)}
+                    className="group cursor-pointer overflow-hidden rounded-lg border border-black/10 text-left transition-colors hover:border-black/25"
+                  >
+                    <span className="relative block aspect-[9/16] w-full overflow-hidden bg-black">
+                      {clip.thumbnail ? (
+                        <Image
+                          src={buildCdnUrl(clip.thumbnail.path) ?? ""}
+                          alt=""
+                          width={clip.thumbnail.width}
+                          height={clip.thumbnail.height}
+                          unoptimized
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                      <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
+                        <span className="flex size-10 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/25">
+                          <LuPlay className="ml-0.5 size-4 fill-current" />
+                        </span>
+                      </span>
+                      <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        {formatDuration(clip.durationSeconds)}
+                      </span>
                     </span>
-                  </h3>
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                    {group.items.map((clip) => (
-                      <button
-                        key={clip.id}
-                        type="button"
-                        onClick={() => openClip(clip)}
-                        className="group cursor-pointer overflow-hidden rounded-lg border border-black/10 text-left transition-colors hover:border-black/25"
-                      >
-                        <span className="relative block aspect-[9/16] w-full overflow-hidden bg-black">
-                          {clip.thumbnail ? (
-                            <Image
-                              src={buildCdnUrl(clip.thumbnail.path) ?? ""}
-                              alt=""
-                              width={clip.thumbnail.width}
-                              height={clip.thumbnail.height}
-                              unoptimized
-                              className="h-full w-full object-cover"
-                            />
-                          ) : null}
-                          <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
-                            <span className="flex size-10 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/25">
-                              <LuPlay className="ml-0.5 size-4 fill-current" />
-                            </span>
-                          </span>
-                          <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                            {formatDuration(clip.durationSeconds)}
-                          </span>
-                        </span>
-                        <span className="block p-2">
-                          <span className="block truncate text-xs font-medium">
-                            {clip.title}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                            @{formatTimestamp(clip.clipStart)} ·{" "}
-                            {formatBytes(clip.sizeBytes)}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))
+                    <span className="block p-2">
+                      <span className="block truncate text-xs font-medium">
+                        {clip.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                        @{formatTimestamp(clip.clipStart)} ·{" "}
+                        {formatBytes(clip.sizeBytes)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </>
