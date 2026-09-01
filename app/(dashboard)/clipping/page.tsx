@@ -2,9 +2,8 @@
 
 import { DragEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { format } from "date-fns";
-import { LuFileVideo, LuLink, LuPlay, LuUpload } from "react-icons/lu";
+import { LuFileVideo, LuLink, LuUpload } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +26,6 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MediaThumb } from "@/components/media-thumb";
-import { buildCdnUrl } from "@/lib/cdn";
 import { cn } from "@/lib/utils";
 
 type MediaRef = {
@@ -55,6 +53,7 @@ type ClipSource = {
   parentId: string;
   clipStart: number;
   transcript: string;
+  clipCount?: number;
 };
 
 type ClipDraft = {
@@ -608,9 +607,6 @@ export default function ClippingPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editSource, setEditSource] = useState<ClipSource | null>(null);
   const [editDraft, setEditDraft] = useState<ClipDraft>(emptyDraft);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewSource, setViewSource] = useState<ClipSource | null>(null);
-  const [viewPlaying, setViewPlaying] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeSource, setRemoveSource] = useState<ClipSource | null>(null);
   const [error, setError] = useState("");
@@ -647,20 +643,6 @@ export default function ClippingPage() {
       setError("");
       setDraft(emptyDraft);
     }
-  }
-
-  function onViewOpenChange(next: boolean) {
-    setViewOpen(next);
-    if (!next) {
-      setViewPlaying(false);
-    }
-  }
-
-  function openViewer(source: ClipSource) {
-    setError("");
-    setViewSource(source);
-    setViewPlaying(false);
-    setViewOpen(true);
   }
 
   function openEditor(source: ClipSource) {
@@ -808,7 +790,6 @@ export default function ClippingPage() {
     setRemoveOpen(false);
   }
 
-  const clips = sources.filter((item) => item.kind === "clip");
   const sourceVideos = sources.filter((item) => item.kind !== "clip");
   const dialogOpen = addOpen || editOpen || removeOpen;
 
@@ -883,66 +864,12 @@ export default function ClippingPage() {
         <p className="mt-3 text-sm text-muted-foreground">{error}</p>
       ) : null}
 
-      {!loading && sources.length === 0 ? (
+      {!loading && sourceVideos.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           No clipping sources yet.
         </p>
       ) : (
         <div className="mt-8">
-          {clips.length > 0 ? (
-            <div className="mb-10">
-              <h2 className="text-sm font-medium">
-                Clips{" "}
-                <span className="text-muted-foreground">({clips.length})</span>
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Vertical cuts with burned-in captions, ready to post.
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                {clips.map((clip) => (
-                  <button
-                    key={clip.id}
-                    type="button"
-                    onClick={() => openViewer(clip)}
-                    className="group cursor-pointer overflow-hidden rounded-lg border border-black/10 text-left transition-colors hover:border-black/25"
-                  >
-                    <span className="relative block aspect-[9/16] w-full overflow-hidden bg-black">
-                      {clip.thumbnail ? (
-                        <Image
-                          src={buildCdnUrl(clip.thumbnail.path) ?? ""}
-                          alt=""
-                          width={clip.thumbnail.width}
-                          height={clip.thumbnail.height}
-                          unoptimized
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                      <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
-                        <span className="flex size-10 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/25">
-                          <LuPlay className="ml-0.5 size-4 fill-current" />
-                        </span>
-                      </span>
-                      <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                        {formatDuration(clip.durationSeconds)}
-                      </span>
-                    </span>
-                    <span className="block p-2">
-                      <span className="block truncate text-xs font-medium">
-                        {clip.title}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                        {formatBytes(clip.sizeBytes)}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {clips.length > 0 ? (
-            <h2 className="mb-3 text-sm font-medium">Source videos</h2>
-          ) : null}
           <Table>
             <TableHeader>
               <TableRow>
@@ -950,6 +877,7 @@ export default function ClippingPage() {
                 <TableHead>Creator</TableHead>
                 <TableHead>Released</TableHead>
                 <TableHead>Tags</TableHead>
+                <TableHead>Clips</TableHead>
                 <TableHead>Length</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead className="w-0 text-right">
@@ -978,6 +906,9 @@ export default function ClippingPage() {
                           <Skeleton className="h-5 w-14 rounded-full" />
                           <Skeleton className="h-5 w-12 rounded-full" />
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-10" />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-14" />
@@ -1049,6 +980,15 @@ export default function ClippingPage() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {source.clipCount ? (
+                          <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium">
+                            {source.clipCount}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {formatDuration(source.durationSeconds)}
                       </TableCell>
@@ -1081,137 +1021,6 @@ export default function ClippingPage() {
           </Table>
         </div>
       )}
-
-      <Dialog open={viewOpen} onOpenChange={onViewOpenChange}>
-        <DialogContent className="sm:max-w-3xl">
-          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-            <div className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black">
-              {viewSource ? (
-                viewPlaying && viewSource.video ? (
-                  <video
-                    className="max-h-[65vh] w-full object-contain"
-                    src={buildCdnUrl(viewSource.video.path) ?? undefined}
-                    controls
-                    autoPlay
-                    playsInline
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => viewSource.video && setViewPlaying(true)}
-                    className="group relative flex w-full cursor-pointer items-center justify-center"
-                    aria-label="Play video"
-                  >
-                    {viewSource.thumbnail ? (
-                      <Image
-                        src={buildCdnUrl(viewSource.thumbnail.path) ?? ""}
-                        alt=""
-                        width={viewSource.thumbnail.width}
-                        height={viewSource.thumbnail.height}
-                        unoptimized
-                        className="max-h-[65vh] w-full object-contain"
-                      />
-                    ) : (
-                      <div className="flex aspect-video w-full items-center justify-center text-sm text-white/60">
-                        No preview
-                      </div>
-                    )}
-                    <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="flex size-14 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/25 backdrop-blur-sm transition group-hover:bg-black/70">
-                        <LuPlay className="ml-0.5 size-6 fill-current" />
-                      </span>
-                    </span>
-                  </button>
-                )
-              ) : null}
-            </div>
-
-            <div className="flex min-w-0 flex-col gap-4">
-              <DialogHeader className="pr-8">
-                <DialogTitle>{viewSource?.title ?? "Clip source"}</DialogTitle>
-                <DialogDescription>
-                  {viewSource
-                    ? [
-                        viewSource.creator,
-                        formatReleasedDate(viewSource.releasedDate),
-                        formatDuration(viewSource.durationSeconds),
-                        formatBytes(viewSource.sizeBytes),
-                      ]
-                        .filter((part) => part && part !== "—")
-                        .join(" · ")
-                    : null}
-                </DialogDescription>
-              </DialogHeader>
-
-              {viewSource ? (
-                <div className="grid max-h-[55vh] gap-3 overflow-y-auto">
-                  {viewSource.tags?.length ? (
-                    <div className="flex flex-wrap gap-1">
-                      {viewSource.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-black/[0.06] px-2 py-0.5 text-[11px] text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Note
-                    </span>
-                    <p className="text-sm whitespace-pre-wrap">
-                      {viewSource.note || (
-                        <span className="text-muted-foreground">No note</span>
-                      )}
-                    </p>
-                  </div>
-                  {viewSource.transcript ? (
-                    <div className="grid gap-1">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Transcript
-                      </span>
-                      <p className="text-sm whitespace-pre-wrap">
-                        {viewSource.transcript}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <DialogFooter showCloseButton>
-            {viewSource?.sourceUrl ? (
-              <Button asChild variant="outline">
-                <a
-                  href={viewSource.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <LuLink />
-                  View source
-                </a>
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              onClick={() => {
-                if (!viewSource) {
-                  return;
-                }
-                const source = viewSource;
-                setViewOpen(false);
-                setViewPlaying(false);
-                openEditor(source);
-              }}
-            >
-              Edit
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>

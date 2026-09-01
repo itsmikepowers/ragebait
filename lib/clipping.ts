@@ -48,6 +48,8 @@ export type ClipSource = {
   clipStart: number;
   /** Burned-in caption text / transcript for this clip. */
   transcript: string;
+  /** Number of clips cut from this source (list view only). */
+  clipCount?: number;
 };
 
 export type ClipKind = "source" | "clip";
@@ -256,7 +258,21 @@ export async function listClipSources(): Promise<ClipSource[]> {
     .find()
     .sort({ kind: 1, clipStart: 1, createdAt: -1 })
     .toArray();
-  return docs.map(toClipSource);
+  const rows = docs.map(toClipSource);
+
+  // Attach each source's clip count so the list can show it without a
+  // second round trip.
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.kind === "clip" && row.parentId) {
+      counts.set(row.parentId, (counts.get(row.parentId) ?? 0) + 1);
+    }
+  }
+  return rows.map((row) =>
+    row.kind === "clip"
+      ? row
+      : { ...row, clipCount: counts.get(row.id) ?? 0 },
+  );
 }
 
 export async function getClipSource(rawId: string): Promise<ClipSource | null> {
@@ -566,6 +582,13 @@ export async function updateClipSource(
   }
   if (fields.bucket !== undefined) {
     update.bucket = normalizeText(fields.bucket, 60).toLowerCase();
+  }
+  if (fields.parentId !== undefined) {
+    update.parentId =
+      typeof fields.parentId === "string" &&
+      /^[a-fA-F0-9]{24}$/.test(fields.parentId)
+        ? fields.parentId
+        : "";
   }
 
   const collection = await clippingCollection();
