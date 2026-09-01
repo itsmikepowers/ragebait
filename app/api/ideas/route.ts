@@ -1,4 +1,10 @@
-import { IdeaError, createIdea, listIdeas, type IdeaKind } from "@/lib/ideas";
+import {
+  IdeaError,
+  createIdea,
+  listIdeas,
+  type IdeaKind,
+  type IdeaVertical,
+} from "@/lib/ideas";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +18,16 @@ function errorResponse(error: unknown) {
 
 export async function GET(request: Request) {
   try {
-    const kindParam = new URL(request.url).searchParams.get("kind");
+    const params = new URL(request.url).searchParams;
+    const kindParam = params.get("kind");
+    const verticalParam = params.get("vertical");
     const kind: IdeaKind | undefined =
       kindParam === "content" || kindParam === "account" ? kindParam : undefined;
-    const ideas = await listIdeas(kind);
+    const vertical: IdeaVertical | undefined =
+      verticalParam === "funny-tshirts" || verticalParam === "novelty-swimwear"
+        ? verticalParam
+        : undefined;
+    const ideas = await listIdeas(kind, vertical);
     return Response.json({ ideas });
   } catch (error) {
     return errorResponse(error);

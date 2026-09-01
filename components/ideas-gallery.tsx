@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { LuCheck, LuInstagram, LuPlay, LuTrash2 } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +60,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   "wholesome-illustrated": "Wholesome / illustrated",
   "corporate-parody": "Corporate parody",
   "absurd-oneliner": "Absurd one-liner",
+  "reaction-prank": "Reaction / prank",
+  "product-reveal": "Product reveal",
   other: "Other",
 };
 
@@ -87,12 +90,16 @@ export function IdeasGallery({
   const [playing, setPlaying] = useState(false);
   const [savingId, setSavingId] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const searchParams = useSearchParams();
+  const vertical = searchParams.get("vertical") ?? "funny-tshirts";
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/ideas?kind=${kind}`);
+      const response = await fetch(
+        `/api/ideas?kind=${kind}&vertical=${vertical}`,
+      );
       const data = (await response.json()) as {
         ideas?: Idea[];
         error?: string;
@@ -106,7 +113,7 @@ export function IdeasGallery({
     } finally {
       setLoading(false);
     }
-  }, [kind]);
+  }, [kind, vertical]);
 
   useEffect(() => {
     load();

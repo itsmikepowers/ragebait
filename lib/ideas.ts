@@ -8,6 +8,18 @@ import { getDb } from "./mongodb";
  */
 export type IdeaKind = "content" | "account";
 
+/**
+ * Product line the idea belongs to. Ideas are grouped by vertical first, then
+ * by format, so unrelated businesses don't get mixed into one feed.
+ */
+export const IDEA_VERTICALS = ["funny-tshirts", "novelty-swimwear"] as const;
+export type IdeaVertical = (typeof IDEA_VERTICALS)[number];
+
+export const VERTICAL_LABELS: Record<IdeaVertical, string> = {
+  "funny-tshirts": "Funny t-shirts",
+  "novelty-swimwear": "Novelty swimwear",
+};
+
 /** Broad content lane, so ideas can be grouped by the joke format they use. */
 export const IDEA_CATEGORIES = [
   "band-logo-parody",
@@ -17,6 +29,8 @@ export const IDEA_CATEGORIES = [
   "wholesome-illustrated",
   "corporate-parody",
   "absurd-oneliner",
+  "reaction-prank",
+  "product-reveal",
   "other",
 ] as const;
 
@@ -29,6 +43,7 @@ export type IdeaRisk = (typeof IDEA_RISK_LEVELS)[number];
 export type Idea = {
   id: string;
   kind: IdeaKind;
+  vertical: IdeaVertical;
   title: string;
   sourceUsername: string;
   sourceUrl: string;
@@ -112,6 +127,12 @@ function normalizeKind(value: unknown): IdeaKind {
   return value === "account" ? "account" : "content";
 }
 
+function normalizeVertical(value: unknown): IdeaVertical {
+  return IDEA_VERTICALS.includes(value as IdeaVertical)
+    ? (value as IdeaVertical)
+    : "funny-tshirts";
+}
+
 function normalizeCategory(value: unknown): IdeaCategory {
   return IDEA_CATEGORIES.includes(value as IdeaCategory)
     ? (value as IdeaCategory)
@@ -128,6 +149,7 @@ function toIdea(doc: IdeaDoc & { _id: ObjectId }): Idea {
   return {
     id: doc._id.toHexString(),
     kind: normalizeKind(doc.kind),
+    vertical: normalizeVertical(doc.vertical),
     title: doc.title ?? "",
     sourceUsername: doc.sourceUsername ?? "",
     sourceUrl: doc.sourceUrl ?? "",
@@ -151,9 +173,22 @@ async function ideasCollection(): Promise<Collection<IdeaDoc>> {
   return db.collection<IdeaDoc>("ideas");
 }
 
-export async function listIdeas(kind?: IdeaKind): Promise<Idea[]> {
+export async function listIdeas(
+  kind?: IdeaKind,
+  vertical?: IdeaVertical,
+): Promise<Idea[]> {
   const collection = await ideasCollection();
-  const filter = kind ? { kind } : {};
+  const filter: Record<string, unknown> = {};
+  if (kind) {
+    filter.kind = kind;
+  }
+  if (vertical) {
+    // Legacy rows predate `vertical` and are all funny-tshirts.
+    filter.vertical =
+      vertical === "funny-tshirts"
+        ? { $in: ["funny-tshirts", null] }
+        : vertical;
+  }
   const docs = await collection
     .find(filter)
     .sort({ used: 1, likes: -1, followers: -1, createdAt: -1 })
@@ -174,6 +209,7 @@ export async function createIdea(fields: IdeaFields): Promise<Idea> {
   const now = new Date();
   const doc: IdeaDoc = {
     kind: normalizeKind(fields.kind),
+    vertical: normalizeVertical(fields.vertical),
     title,
     sourceUsername: normalizeText(fields.sourceUsername, 80),
     sourceUrl,
@@ -246,6 +282,9 @@ export async function updateIdea(
   }
   if (fields.risk !== undefined) {
     update.risk = normalizeRisk(fields.risk);
+  }
+  if (fields.vertical !== undefined) {
+    update.vertical = normalizeVertical(fields.vertical);
   }
   if (fields.thumbnailUrl !== undefined) {
     update.thumbnailUrl = normalizeHttpUrl(fields.thumbnailUrl);
