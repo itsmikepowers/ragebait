@@ -55,6 +55,12 @@ export type ClipSource = {
   score: number;
   /** How this clip was edited (framing/font/captions/animation). "" for sources. */
   style: string;
+  /** Owner's own 1-5 "would I post this" verdict. 0 = not reviewed yet. */
+  rating: number;
+  /** Free-text notes on what to change; the input for a re-render. */
+  feedback: string;
+  /** When the rating/feedback was last saved (ISO), "" if never. */
+  ratedAt: string;
 };
 
 export {
@@ -63,8 +69,13 @@ export {
   CLIP_STYLE_SPECS,
   CLIP_STYLE_SPEC_FIELDS,
   clipStyleLabel,
+  CLIP_RATINGS,
+  CLIP_RATING_VALUES,
+  CLIP_RATING_BY_VALUE,
+  clipRatingLabel,
+  clipRatingColor,
 } from "./clipping-meta";
-export type { ClipStyle, ClipStyleSpec } from "./clipping-meta";
+export type { ClipStyle, ClipStyleSpec, ClipRating, ClipRatingSpec } from "./clipping-meta";
 
 export type ClipKind = "source" | "clip";
 export const CLIP_KINDS = ["source", "clip"] as const;
@@ -89,6 +100,9 @@ type ClipSourceDoc = {
   clipStart?: number;
   transcript?: string;
   style?: string;
+  rating?: number;
+  feedback?: string;
+  ratedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -96,6 +110,8 @@ type ClipSourceDoc = {
 const TITLE_MAX = 300;
 const CREATOR_MAX = 200;
 const NOTE_MAX = 2200;
+/** Review feedback is prose meant to drive a re-render, so it gets room. */
+const FEEDBACK_MAX = 4000;
 const URL_MAX = 600;
 const TAG_MAX = 40;
 const TAGS_MAX = 20;
@@ -248,6 +264,25 @@ function normalizeStyle(value: unknown): string {
   return CLIP_STYLES.includes(trimmed as ClipStyle) ? trimmed : "";
 }
 
+/**
+ * Owner rating: an integer 1-5, or 0 for "not reviewed". Anything outside the
+ * scale collapses to 0 rather than being clamped into a real verdict — a
+ * garbage value must never read as "would post".
+ */
+function normalizeRating(value: unknown): number {
+  const num =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+  if (!Number.isFinite(num)) {
+    return 0;
+  }
+  const rounded = Math.round(num);
+  return rounded >= 1 && rounded <= 5 ? rounded : 0;
+}
+
 /** Virality score: clamped to 0-10 and rounded to one decimal. */
 function normalizeScore(value: unknown): number {
   const num =
@@ -285,6 +320,12 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
     clipStart: doc.clipStart ?? 0,
     transcript: doc.transcript ?? "",
     style: doc.style ?? "",
+    rating: normalizeRating(doc.rating),
+    feedback: doc.feedback ?? "",
+    ratedAt:
+      doc.ratedAt instanceof Date && !Number.isNaN(doc.ratedAt.getTime())
+        ? doc.ratedAt.toISOString()
+        : "",
   };
 }
 
@@ -506,6 +547,8 @@ type ClippingFields = {
   bucket?: unknown;
   score?: unknown;
   style?: unknown;
+  rating?: unknown;
+  feedback?: unknown;
 };
 
 export async function createClipSource(
@@ -566,6 +609,9 @@ export async function createClipSource(
     clipStart: normalizeCount(fields.clipStart),
     transcript: normalizeText(fields.transcript, NOTE_MAX),
     style: normalizeStyle(fields.style),
+    rating: normalizeRating(fields.rating),
+    feedback: normalizeText(fields.feedback, FEEDBACK_MAX),
+    ratedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -633,6 +679,17 @@ export async function updateClipSource(
   }
   if (fields.style !== undefined) {
     update.style = normalizeStyle(fields.style);
+  }
+  // Rating and feedback are the human review pass; either one landing stamps
+  // ratedAt so the dashboard can tell "reviewed and cleared" apart from
+  // "never looked at."
+  if (fields.rating !== undefined) {
+    update.rating = normalizeRating(fields.rating);
+    update.ratedAt = new Date();
+  }
+  if (fields.feedback !== undefined) {
+    update.feedback = normalizeText(fields.feedback, FEEDBACK_MAX);
+    update.ratedAt = new Date();
   }
   if (fields.parentId !== undefined) {
     update.parentId =

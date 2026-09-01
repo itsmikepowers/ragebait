@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScoreBadge } from "@/components/score-badge";
+import { ClipReview, RatingBadge } from "@/components/clip-review";
 import {
   CLIP_STYLE_SPECS,
   CLIP_STYLE_SPEC_FIELDS,
@@ -46,6 +47,9 @@ type ClipSource = {
   transcript: string;
   score: number;
   style: string;
+  rating: number;
+  feedback: string;
+  ratedAt: string;
 };
 
 function formatDuration(seconds: number): string {
@@ -158,6 +162,20 @@ export default function ClipsPage({
 
   const poster = source ? posterSrc(source) : null;
   const videoSrc = source?.video ? buildCdnUrl(source.video.path) : null;
+
+  // Review progress at a glance: how many are cleared to post, how many were
+  // reviewed and rejected, how many nobody has looked at yet.
+  const reviewSummary = (() => {
+    if (clips.length === 0) return "";
+    const ready = clips.filter((c) => c.rating === 5).length;
+    const needsWork = clips.filter((c) => c.rating >= 1 && c.rating <= 4).length;
+    const unreviewed = clips.filter((c) => !c.rating).length;
+    const parts: string[] = [];
+    if (ready) parts.push(`${ready} would post`);
+    if (needsWork) parts.push(`${needsWork} need work`);
+    if (unreviewed) parts.push(`${unreviewed} unreviewed`);
+    return parts.join(" · ");
+  })();
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
@@ -279,6 +297,11 @@ export default function ClipsPage({
             <h2 className="text-sm font-medium">
               Clips{" "}
               <span className="text-muted-foreground">({clips.length})</span>
+              {reviewSummary ? (
+                <span className="ml-2 font-normal text-muted-foreground">
+                  {reviewSummary}
+                </span>
+              ) : null}
             </h2>
             {clips.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
@@ -309,8 +332,9 @@ export default function ClipsPage({
                           <LuPlay className="ml-0.5 size-4 fill-current" />
                         </span>
                       </span>
-                      <span className="absolute top-1.5 left-1.5">
+                      <span className="absolute top-1.5 left-1.5 flex gap-1">
                         <ScoreBadge score={clip.score} />
+                        <RatingBadge rating={clip.rating} />
                       </span>
                       <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                         {formatDuration(clip.durationSeconds)}
@@ -390,6 +414,25 @@ export default function ClipsPage({
                       ) : null}
                     </div>
                   ) : null}
+                  <ClipReview
+                    clipId={viewClip.id}
+                    rating={viewClip.rating}
+                    feedback={viewClip.feedback}
+                    onSaved={(patch) => {
+                      // Keep the grid badge and the open dialog in step
+                      // without refetching the whole page.
+                      setClips((prev) =>
+                        prev.map((c) =>
+                          c.id === viewClip.id ? { ...c, ...patch } : c,
+                        ),
+                      );
+                      setViewClip((prev) =>
+                        prev && prev.id === viewClip.id
+                          ? { ...prev, ...patch }
+                          : prev,
+                      );
+                    }}
+                  />
                   {viewClip.transcript ? (
                     <div className="grid gap-1">
                       <span className="text-xs font-medium text-muted-foreground">

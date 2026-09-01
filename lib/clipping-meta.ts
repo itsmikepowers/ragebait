@@ -74,3 +74,77 @@ export const CLIP_STYLE_SPEC_FIELDS = [
 export function clipStyleLabel(value: string): string {
   return CLIP_STYLE_LABELS[value as ClipStyle] ?? value;
 }
+
+/* -------------------------------------------------------------------------
+ * Human review: "would I post this?"
+ *
+ * Deliberately SEPARATE from `score` (the bot's 0-10 virality guess). This is
+ * the owner's own 1-5 verdict plus free-text feedback, and it is the input a
+ * re-render reads to know what to change. 0 means "not reviewed yet".
+ * ---------------------------------------------------------------------- */
+
+export const CLIP_RATING_VALUES = [1, 2, 3, 4, 5] as const;
+export type ClipRating = (typeof CLIP_RATING_VALUES)[number];
+
+export type ClipRatingSpec = {
+  value: ClipRating;
+  /** Short label for the picker's tooltip / legend. */
+  label: string;
+  /** What this rating means, in the owner's own words. */
+  meaning: string;
+};
+
+export const CLIP_RATINGS: readonly ClipRatingSpec[] = [
+  {
+    value: 1,
+    label: "Unusable",
+    meaning: "Would not post. Wrong moment or wrong edit — start over.",
+  },
+  {
+    value: 2,
+    label: "Needs significant improvement",
+    meaning: "The idea is there but the execution needs major rework.",
+  },
+  {
+    value: 3,
+    label: "Passes, needs lots of changes",
+    meaning: "Postable in principle, but lots would have to change first.",
+  },
+  {
+    value: 4,
+    label: "Almost there",
+    meaning: "Close. Needs a slight change and it would be ready.",
+  },
+  {
+    value: 5,
+    label: "Would post",
+    meaning: "Perfect as-is. Ready to post with no changes.",
+  },
+] as const;
+
+export const CLIP_RATING_BY_VALUE: Record<ClipRating, ClipRatingSpec> =
+  Object.fromEntries(CLIP_RATINGS.map((r) => [r.value, r])) as Record<
+    ClipRating,
+    ClipRatingSpec
+  >;
+
+/** "" when unrated, so callers can render nothing rather than a fake label. */
+export function clipRatingLabel(value: number): string {
+  return CLIP_RATING_BY_VALUE[value as ClipRating]?.label ?? "";
+}
+
+/**
+ * Colour ramp for a 1-5 rating: red (1) -> amber (3) -> green (5).
+ * Mirrors `ScoreBadge` so the two numbers read consistently side by side,
+ * but stays a separate function because the scales differ (1-5 vs 0-10).
+ */
+export function clipRatingColor(value: number): { bg: string; fg: string } {
+  const clamped = Math.max(1, Math.min(5, value));
+  const t = (clamped - 1) / 4; // 0..1
+  const hue = t <= 0.5 ? (t / 0.5) * 45 : 45 + ((t - 0.5) / 0.5) * 85;
+  const light = hue > 30 && hue < 80;
+  return {
+    bg: `hsl(${hue} 85% ${light ? 52 : 45}%)`,
+    fg: light ? "#1a1a1a" : "#ffffff",
+  };
+}
