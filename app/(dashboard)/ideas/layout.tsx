@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { IDEA_VERTICALS, VERTICAL_LABELS } from "@/lib/ideas-meta";
 
-const VERTICALS = [
-  { value: "funny-tshirts", label: "Funny t-shirts" },
-  { value: "novelty-swimwear", label: "Novelty swimwear" },
-];
+const VERTICALS = IDEA_VERTICALS.map((value) => ({
+  value,
+  label: VERTICAL_LABELS[value],
+}));
 
 const TABS = [
   { href: "/ideas/content", label: "Content" },

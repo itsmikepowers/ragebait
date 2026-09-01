@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { categoryLabel } from "@/lib/ideas-meta";
 import {
   Table,
   TableBody,
@@ -51,19 +52,6 @@ export function formatCount(value: number): string {
   }
   return String(value);
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  "band-logo-parody": "Band logo parody",
-  "name-acrostic": "Name acrostic",
-  relationship: "Relationship",
-  "pick-one": "Pick one",
-  "wholesome-illustrated": "Wholesome / illustrated",
-  "corporate-parody": "Corporate parody",
-  "absurd-oneliner": "Absurd one-liner",
-  "reaction-prank": "Reaction / prank",
-  "product-reveal": "Product reveal",
-  other: "Other",
-};
 
 const RISK_STYLES: Record<string, string> = {
   safe: "bg-emerald-100 text-emerald-800",
@@ -192,7 +180,7 @@ export function IdeasGallery({
               <option value="all">All formats</option>
               {categories.map((category) => (
                 <option key={category} value={category}>
-                  {CATEGORY_LABELS[category] ?? category}
+                  {categoryLabel(category)}
                 </option>
               ))}
             </select>
@@ -290,7 +278,7 @@ export function IdeasGallery({
                     {formatCount(idea.postCount)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {CATEGORY_LABELS[idea.category] ?? idea.category}
+                    {categoryLabel(idea.category)}
                   </TableCell>
                   <TableCell>
                     <span
@@ -454,7 +442,7 @@ export function IdeasGallery({
                 <div className="grid max-h-[50vh] gap-3 overflow-y-auto">
                   <div className="flex flex-wrap gap-1.5">
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
-                      {CATEGORY_LABELS[viewIdea.category] ?? viewIdea.category}
+                      {categoryLabel(viewIdea.category)}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

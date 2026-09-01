@@ -1,5 +1,13 @@
 import { ObjectId, type Collection } from "mongodb";
 import { getDb } from "./mongodb";
+import {
+  IDEA_CATEGORIES,
+  IDEA_RISK_LEVELS,
+  IDEA_VERTICALS,
+  type IdeaCategory,
+  type IdeaRisk,
+  type IdeaVertical,
+} from "./ideas-meta";
 
 /**
  * Ideas are research for the meme/funny t-shirt business: reference posts
@@ -8,37 +16,14 @@ import { getDb } from "./mongodb";
  */
 export type IdeaKind = "content" | "account";
 
-/**
- * Product line the idea belongs to. Ideas are grouped by vertical first, then
- * by format, so unrelated businesses don't get mixed into one feed.
- */
-export const IDEA_VERTICALS = ["funny-tshirts", "novelty-swimwear"] as const;
-export type IdeaVertical = (typeof IDEA_VERTICALS)[number];
-
-export const VERTICAL_LABELS: Record<IdeaVertical, string> = {
-  "funny-tshirts": "Funny t-shirts",
-  "novelty-swimwear": "Novelty swimwear",
-};
-
-/** Broad content lane, so ideas can be grouped by the joke format they use. */
-export const IDEA_CATEGORIES = [
-  "band-logo-parody",
-  "name-acrostic",
-  "relationship",
-  "pick-one",
-  "wholesome-illustrated",
-  "corporate-parody",
-  "absurd-oneliner",
-  "reaction-prank",
-  "product-reveal",
-  "other",
-] as const;
-
-export type IdeaCategory = (typeof IDEA_CATEGORIES)[number];
-
-/** How safe the reference is to imitate on a brand account. */
-export const IDEA_RISK_LEVELS = ["safe", "edgy", "avoid"] as const;
-export type IdeaRisk = (typeof IDEA_RISK_LEVELS)[number];
+export {
+  IDEA_CATEGORIES,
+  IDEA_RISK_LEVELS,
+  IDEA_VERTICALS,
+  CATEGORY_LABELS,
+  VERTICAL_LABELS,
+} from "./ideas-meta";
+export type { IdeaCategory, IdeaRisk, IdeaVertical } from "./ideas-meta";
 
 export type Idea = {
   id: string;

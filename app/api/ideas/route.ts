@@ -1,4 +1,5 @@
 import {
+  IDEA_VERTICALS,
   IdeaError,
   createIdea,
   listIdeas,
@@ -23,10 +24,11 @@ export async function GET(request: Request) {
     const verticalParam = params.get("vertical");
     const kind: IdeaKind | undefined =
       kindParam === "content" || kindParam === "account" ? kindParam : undefined;
-    const vertical: IdeaVertical | undefined =
-      verticalParam === "funny-tshirts" || verticalParam === "novelty-swimwear"
-        ? verticalParam
-        : undefined;
+    const vertical: IdeaVertical | undefined = IDEA_VERTICALS.includes(
+      verticalParam as IdeaVertical,
+    )
+      ? (verticalParam as IdeaVertical)
+      : undefined;
     const ideas = await listIdeas(kind, vertical);
     return Response.json({ ideas });
   } catch (error) {
