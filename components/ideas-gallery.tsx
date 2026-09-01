@@ -12,6 +12,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export type Idea = {
   id: string;
@@ -193,21 +201,126 @@ export function IdeasGallery({
       ) : null}
 
       {loading ? (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="grid gap-2">
-              <Skeleton className="aspect-square w-full rounded-lg" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          ))}
-        </div>
+        kind === "account" ? (
+          <div className="mt-6 grid gap-2">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={index} className="h-14 w-full rounded-md" />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {Array.from({ length: 12 }, (_, index) => (
+              <div key={index} className="grid gap-2">
+                <Skeleton className="aspect-square w-full rounded-lg" />
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+        )
       ) : visible.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           {emptyLabel}
         </p>
+      ) : kind === "account" ? (
+        <div className="mt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Account</TableHead>
+                <TableHead className="text-right">Followers</TableHead>
+                <TableHead className="text-right">Posts</TableHead>
+                <TableHead>Lane</TableHead>
+                <TableHead>Risk</TableHead>
+                <TableHead className="w-0 text-right">
+                  <span className="sr-only">Links</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((idea) => (
+                <TableRow
+                  key={idea.id}
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setViewIdea(idea);
+                    setPlaying(false);
+                    setViewOpen(true);
+                  }}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2.5">
+                      <span className="size-8 shrink-0 overflow-hidden rounded-lg bg-black/5">
+                        {idea.thumbnailUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={idea.thumbnailUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate">
+                          {idea.title || idea.sourceUsername}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          @{idea.sourceUsername}
+                        </div>
+                      </div>
+                      {idea.used ? (
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                          <LuCheck className="size-3" /> Used
+                        </span>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {formatCount(idea.followers)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {formatCount(idea.postCount)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {CATEGORY_LABELS[idea.category] ?? idea.category}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        RISK_STYLES[idea.risk] ?? RISK_STYLES.safe
+                      }`}
+                    >
+                      {idea.risk}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {idea.sourceUrl ? (
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Open profile on Instagram"
+                        title="Open profile on Instagram"
+                      >
+                        <a
+                          href={idea.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <LuInstagram />
+                        </a>
+                      </Button>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {visible.map((idea) => (
             <button
               key={idea.id}
@@ -217,7 +330,7 @@ export function IdeasGallery({
                 setPlaying(false);
                 setViewOpen(true);
               }}
-              className="group grid cursor-pointer gap-2 text-left"
+              className="group grid cursor-pointer gap-1.5 text-left"
             >
               <span className="relative block aspect-square overflow-hidden rounded-lg bg-black/5">
                 {idea.thumbnailUrl ? (
@@ -228,43 +341,27 @@ export function IdeasGallery({
                     src={idea.thumbnailUrl}
                     alt=""
                     loading="lazy"
-                    className={`h-full w-full transition group-hover:opacity-90 ${
-                      idea.kind === "account"
-                        ? "object-contain p-6"
-                        : "object-cover"
-                    }`}
+                    className="h-full w-full object-cover transition group-hover:opacity-90"
                   />
                 ) : null}
                 {idea.isVideo ? (
-                  <span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-black/60 text-white">
-                    <LuPlay className="ml-0.5 size-3.5 fill-current" />
+                  <span className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white">
+                    <LuPlay className="ml-0.5 size-3 fill-current" />
                   </span>
                 ) : null}
                 {idea.used ? (
-                  <span className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-1 text-[11px] font-medium text-white">
-                    <LuCheck className="size-3" /> Used
+                  <span className="absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full bg-emerald-600/90 text-white">
+                    <LuCheck className="size-3" />
                   </span>
                 ) : null}
               </span>
-              <span className="line-clamp-2 text-sm font-medium">
+              <span className="line-clamp-2 text-xs font-medium">
                 {idea.title || idea.sourceUsername || "Untitled"}
               </span>
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                {idea.kind === "account" ? (
-                  <>
-                    <span>@{idea.sourceUsername}</span>
-                    <span>·</span>
-                    <span>{formatCount(idea.followers)} followers</span>
-                  </>
-                ) : (
-                  <>
-                    <span>@{idea.sourceUsername}</span>
-                    <span>·</span>
-                    <span>{formatCount(idea.likes)} likes</span>
-                  </>
-                )}
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="truncate">{formatCount(idea.likes)} likes</span>
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                  className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                     RISK_STYLES[idea.risk] ?? RISK_STYLES.safe
                   }`}
                 >
