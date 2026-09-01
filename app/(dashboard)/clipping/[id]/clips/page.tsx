@@ -323,11 +323,11 @@ export default function ClipsPage({
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="sm:max-w-3xl">
-          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-            <div className="flex items-center justify-center overflow-hidden rounded-lg bg-black">
+          <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:gap-5">
+            <div className="mx-auto aspect-[9/16] h-[70vh] max-w-full overflow-hidden rounded-lg bg-black">
               {viewClip?.video ? (
                 <video
-                  className="max-h-[65vh] w-full object-contain"
+                  className="h-full w-full object-cover"
                   src={buildCdnUrl(viewClip.video.path) ?? undefined}
                   controls
                   autoPlay
@@ -345,7 +345,7 @@ export default function ClipsPage({
                 </DialogDescription>
               </DialogHeader>
               {viewClip ? (
-                <div className="grid max-h-[55vh] gap-3 overflow-y-auto">
+                <div className="grid max-h-[60vh] gap-3 overflow-y-auto">
                   {viewClip.note ? (
                     <p className="text-sm whitespace-pre-wrap">
                       {viewClip.note}
