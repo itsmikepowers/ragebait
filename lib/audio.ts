@@ -24,6 +24,10 @@ export type AudioTrack = {
   artist: string;
   sourceUrl: string;
   note: string;
+  /** Free-form kind-of-audio labels, e.g. "ambient", "anime edit". */
+  tags: string[];
+  /** ISO date the source track/video was released; "" when unknown. */
+  releasedDate: string;
   durationSeconds: number;
   audio: AudioFile;
   used: boolean;
@@ -34,6 +38,8 @@ type AudioTrackDoc = {
   artist?: string;
   sourceUrl?: string;
   note?: string;
+  tags?: string[];
+  releasedDate?: Date | null;
   durationSeconds?: number;
   audio: AudioFile;
   used?: boolean;
@@ -45,6 +51,8 @@ const TITLE_MAX = 300;
 const ARTIST_MAX = 200;
 const NOTE_MAX = 2200;
 const URL_MAX = 600;
+const TAG_MAX = 40;
+const TAGS_MAX = 20;
 
 const AUDIO_FOLDER = "audio";
 const AUDIO_MAX_BYTES = 50 * 1024 * 1024;
@@ -124,6 +132,67 @@ function normalizeDuration(value: unknown): number {
   return Math.round(num);
 }
 
+/** Tag list: trimmed, lowercased, deduped, capped. Accepts an array or CSV. */
+function normalizeTags(value: unknown): string[] {
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const tag = entry.trim().toLowerCase().slice(0, TAG_MAX);
+    if (tag) {
+      seen.add(tag);
+    }
+    if (seen.size >= TAGS_MAX) {
+      break;
+    }
+  }
+  return Array.from(seen);
+}
+
+/**
+ * Release date, stored as a UTC-midnight Date. Accepts "YYYY-MM-DD" or a full
+ * ISO string; anything unparseable normalizes to null ("unknown").
+ */
+function normalizeReleasedDate(value: unknown): Date | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+/** Serializes the stored Date back to "YYYY-MM-DD" for the API/UI. */
+function releasedDateToIso(value: Date | null | undefined): string {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return "";
+  }
+  return value.toISOString().slice(0, 10);
+}
+
 function parseAudioFile(value: unknown): AudioFile | undefined {
   if (!value || typeof value !== "object") {
     return undefined;
@@ -159,6 +228,8 @@ function toAudioTrack(doc: AudioTrackDoc & { _id: ObjectId }): AudioTrack {
     artist: doc.artist ?? "",
     sourceUrl: doc.sourceUrl ?? "",
     note: doc.note ?? "",
+    tags: Array.isArray(doc.tags) ? doc.tags : [],
+    releasedDate: releasedDateToIso(doc.releasedDate),
     durationSeconds: doc.durationSeconds ?? 0,
     audio: doc.audio,
     used: doc.used === true,
@@ -217,6 +288,8 @@ type AudioFields = {
   artist?: unknown;
   sourceUrl?: unknown;
   note?: unknown;
+  tags?: unknown;
+  releasedDate?: unknown;
   durationSeconds?: unknown;
   audio?: unknown;
   used?: unknown;
@@ -243,6 +316,8 @@ export async function createAudioTrack(
     artist: normalizeText(fields.artist, ARTIST_MAX),
     sourceUrl: normalizeHttpUrl(fields.sourceUrl),
     note: normalizeText(fields.note, NOTE_MAX),
+    tags: normalizeTags(fields.tags),
+    releasedDate: normalizeReleasedDate(fields.releasedDate),
     durationSeconds: normalizeDuration(fields.durationSeconds),
     audio,
     used: fields.used === true,
@@ -287,6 +362,12 @@ export async function updateAudioTrack(
   }
   if (fields.note !== undefined) {
     update.note = normalizeText(fields.note, NOTE_MAX);
+  }
+  if (fields.tags !== undefined) {
+    update.tags = normalizeTags(fields.tags);
+  }
+  if (fields.releasedDate !== undefined) {
+    update.releasedDate = normalizeReleasedDate(fields.releasedDate);
   }
   if (fields.durationSeconds !== undefined) {
     update.durationSeconds = normalizeDuration(fields.durationSeconds);

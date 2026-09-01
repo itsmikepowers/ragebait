@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import { format } from "date-fns";
 import { LuDownload, LuLink, LuMusic, LuUpload } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Table,
   TableBody,
@@ -37,6 +39,8 @@ type AudioTrack = {
   artist: string;
   sourceUrl: string;
   note: string;
+  tags: string[];
+  releasedDate: string;
   durationSeconds: number;
   audio: AudioFile;
   used: boolean;
@@ -47,6 +51,8 @@ type AudioDraft = {
   artist: string;
   sourceUrl: string;
   note: string;
+  tags: string;
+  releasedDate?: Date;
   file: File | null;
 };
 
@@ -55,6 +61,8 @@ const emptyDraft: AudioDraft = {
   artist: "",
   sourceUrl: "",
   note: "",
+  tags: "",
+  releasedDate: undefined,
   file: null,
 };
 
@@ -127,6 +135,40 @@ function readAudioDuration(file: File): Promise<number> {
     };
     audio.src = url;
   });
+}
+
+/**
+ * "YYYY-MM-DD" (stored as UTC midnight) -> a local Date at noon, so the
+ * calendar highlights the intended day regardless of timezone offset.
+ */
+function isoDateToLocalDate(iso: string): Date | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  if (!match) {
+    return undefined;
+  }
+  return new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    12,
+    0,
+    0,
+    0,
+  );
+}
+
+/** A local Date -> "YYYY-MM-DD" using local calendar fields (no UTC shift). */
+function localDateToIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Renders a stored "YYYY-MM-DD" without constructing a UTC-shifted Date. */
+function formatReleasedDate(iso: string): string {
+  const local = isoDateToLocalDate(iso);
+  return local ? format(local, "MMM d, yyyy") : "\u2014";
 }
 
 async function readApiJson<T>(response: Response): Promise<T> {
@@ -267,20 +309,28 @@ function AudioFields({
   artist,
   sourceUrl,
   note,
+  tags,
+  releasedDate,
   onTitleChange,
   onArtistChange,
   onSourceUrlChange,
   onNoteChange,
+  onTagsChange,
+  onReleasedDateChange,
 }: {
   idPrefix: string;
   title: string;
   artist: string;
   sourceUrl: string;
   note: string;
+  tags: string;
+  releasedDate?: Date;
   onTitleChange: (value: string) => void;
   onArtistChange: (value: string) => void;
   onSourceUrlChange: (value: string) => void;
   onNoteChange: (value: string) => void;
+  onTagsChange: (value: string) => void;
+  onReleasedDateChange: (value: Date | undefined) => void;
 }) {
   return (
     <div className="grid gap-3">
@@ -316,6 +366,27 @@ function AudioFields({
           placeholder="https://www.youtube.com/watch?v=..."
           className="!h-11"
         />
+      </div>
+      <div className="grid gap-1.5">
+        <label htmlFor={`${idPrefix}-released`}>Released</label>
+        <DatePicker
+          id={`${idPrefix}-released`}
+          date={releasedDate}
+          onChange={onReleasedDateChange}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <label htmlFor={`${idPrefix}-tags`}>Tags</label>
+        <Input
+          id={`${idPrefix}-tags`}
+          value={tags}
+          onChange={(event) => onTagsChange(event.target.value)}
+          placeholder="ambient, lo-fi, anime edit"
+          className="!h-11"
+        />
+        <p className="text-xs text-muted-foreground">
+          Comma-separated — the kind of audio this is.
+        </p>
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${idPrefix}-note`}>Note</label>
@@ -387,6 +458,8 @@ export default function AudioPage() {
       artist: track.artist ?? "",
       sourceUrl: track.sourceUrl ?? "",
       note: track.note ?? "",
+      tags: (track.tags ?? []).join(", "),
+      releasedDate: isoDateToLocalDate(track.releasedDate),
       file: null,
     });
     setEditOpen(true);
@@ -427,6 +500,10 @@ export default function AudioPage() {
           artist: draft.artist,
           sourceUrl: draft.sourceUrl,
           note: draft.note,
+          tags: draft.tags,
+          releasedDate: draft.releasedDate
+            ? localDateToIsoDate(draft.releasedDate)
+            : "",
           durationSeconds,
           audio,
         }),
@@ -469,6 +546,10 @@ export default function AudioPage() {
           artist: editDraft.artist,
           sourceUrl: editDraft.sourceUrl,
           note: editDraft.note,
+          tags: editDraft.tags,
+          releasedDate: editDraft.releasedDate
+            ? localDateToIsoDate(editDraft.releasedDate)
+            : "",
         }),
       });
       const data = (await response.json()) as {
@@ -543,12 +624,18 @@ export default function AudioPage() {
                   artist={draft.artist}
                   sourceUrl={draft.sourceUrl}
                   note={draft.note}
+                  tags={draft.tags}
+                  releasedDate={draft.releasedDate}
                   onTitleChange={(title) => setDraft({ ...draft, title })}
                   onArtistChange={(artist) => setDraft({ ...draft, artist })}
                   onSourceUrlChange={(sourceUrl) =>
                     setDraft({ ...draft, sourceUrl })
                   }
                   onNoteChange={(note) => setDraft({ ...draft, note })}
+                  onTagsChange={(tags) => setDraft({ ...draft, tags })}
+                  onReleasedDateChange={(releasedDate) =>
+                    setDraft({ ...draft, releasedDate })
+                  }
                 />
                 <div className="grid gap-1.5">
                   <span>Audio file</span>
@@ -591,6 +678,8 @@ export default function AudioPage() {
               <TableRow>
                 <TableHead>Title</TableHead>
                 <TableHead>Artist</TableHead>
+                <TableHead>Released</TableHead>
+                <TableHead>Tags</TableHead>
                 <TableHead>Length</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead>Preview</TableHead>
@@ -611,6 +700,15 @@ export default function AudioPage() {
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Skeleton className="h-5 w-14 rounded-full" />
+                          <Skeleton className="h-5 w-12 rounded-full" />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-12" />
@@ -654,6 +752,25 @@ export default function AudioPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {track.artist || "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                          {formatReleasedDate(track.releasedDate)}
+                        </TableCell>
+                        <TableCell>
+                          {track.tags?.length ? (
+                            <div className="flex max-w-[16rem] flex-wrap gap-1">
+                              {track.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded-full bg-black/[0.06] px-2 py-0.5 text-[11px] text-muted-foreground"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDuration(track.durationSeconds)}
@@ -736,6 +853,8 @@ export default function AudioPage() {
               artist={editDraft.artist}
               sourceUrl={editDraft.sourceUrl}
               note={editDraft.note}
+              tags={editDraft.tags}
+              releasedDate={editDraft.releasedDate}
               onTitleChange={(title) => setEditDraft({ ...editDraft, title })}
               onArtistChange={(artist) =>
                 setEditDraft({ ...editDraft, artist })
@@ -744,6 +863,10 @@ export default function AudioPage() {
                 setEditDraft({ ...editDraft, sourceUrl })
               }
               onNoteChange={(note) => setEditDraft({ ...editDraft, note })}
+              onTagsChange={(tags) => setEditDraft({ ...editDraft, tags })}
+              onReleasedDateChange={(releasedDate) =>
+                setEditDraft({ ...editDraft, releasedDate })
+              }
             />
             {error ? (
               <p className="text-sm text-muted-foreground">{error}</p>
@@ -774,7 +897,11 @@ export default function AudioPage() {
                     editDraft.title === editTrack.title &&
                     editDraft.artist === (editTrack.artist ?? "") &&
                     editDraft.sourceUrl === (editTrack.sourceUrl ?? "") &&
-                    editDraft.note === (editTrack.note ?? ""))
+                    editDraft.note === (editTrack.note ?? "") &&
+                    editDraft.tags === (editTrack.tags ?? []).join(", ") &&
+                    (editDraft.releasedDate
+                      ? localDateToIsoDate(editDraft.releasedDate)
+                      : "") === (editTrack.releasedDate ?? ""))
                 }
               >
                 {saving ? "Saving" : "Save"}
