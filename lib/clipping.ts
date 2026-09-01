@@ -65,8 +65,12 @@ const THUMBNAIL_FOLDER = "clipping-thumbnails";
 /** 4K masters run multi-GB, so this ceiling is far above the schedule's. */
 const VIDEO_MAX_BYTES = 16 * 1024 * 1024 * 1024;
 const THUMBNAIL_MAX_BYTES = 4 * 1024 * 1024;
-/** Big parts keep the count under R2's 10,000-part cap for multi-GB files. */
-const MULTIPART_PART_BYTES = 64 * 1024 * 1024;
+/**
+ * 16 MB parts: large enough to stay well under R2's 10,000-part cap even for
+ * a 16 GB master (~1,024 parts), but small enough that a single PUT body does
+ * not stall/reset the connection the way 64 MB bodies did.
+ */
+const MULTIPART_PART_BYTES = 16 * 1024 * 1024;
 /** Large uploads take far longer than the default 15m presign window. */
 const UPLOAD_URL_EXPIRES_SECONDS = 12 * 60 * 60;
 
