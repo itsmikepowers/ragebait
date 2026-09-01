@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LuCalendar, LuHouse, LuLightbulb, LuUsers } from "react-icons/lu";
+import { LuCalendar, LuHouse, LuLightbulb, LuMusic, LuUsers } from "react-icons/lu";
 import { Logo } from "./logo";
 
 const links = [
   { href: "/home", label: "Home", icon: LuHouse },
   { href: "/accounts", label: "Accounts", icon: LuUsers },
   { href: "/schedule", label: "Schedule", icon: LuCalendar },
+  { href: "/audio", label: "Audio", icon: LuMusic },
   { href: "/ideas/content", label: "Ideas", icon: LuLightbulb },
 ];
 
