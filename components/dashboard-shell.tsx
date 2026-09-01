@@ -9,8 +9,16 @@ const links = [
   { href: "/home", label: "Home", icon: LuHouse },
   { href: "/accounts", label: "Accounts", icon: LuUsers },
   { href: "/schedule", label: "Schedule", icon: LuCalendar },
-  { href: "/ideas", label: "Ideas", icon: LuLightbulb },
+  { href: "/ideas/content", label: "Ideas", icon: LuLightbulb },
 ];
+
+/** Ideas has sub-routes, so match on section rather than exact path. */
+function isActive(pathname: string, href: string): boolean {
+  if (href.startsWith("/ideas")) {
+    return pathname.startsWith("/ideas");
+  }
+  return pathname === href;
+}
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,7 +33,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         <nav className="mt-8 flex flex-col gap-1 text-sm">
           {links.map((link) => {
-            const active = pathname === link.href;
+            const active = isActive(pathname, link.href);
             const Icon = link.icon;
             return (
               <Link
@@ -55,7 +63,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom nav: 3 tabs */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-black/10 bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
         {links.map((link) => {
-          const active = pathname === link.href;
+          const active = isActive(pathname, link.href);
           const Icon = link.icon;
           return (
             <Link

@@ -1,33 +1,52 @@
 import { ObjectId, type Collection } from "mongodb";
 import { getDb } from "./mongodb";
 
+/**
+ * Ideas are research for the meme/funny t-shirt business: reference posts
+ * worth reworking ("content") and source accounts worth mining ("accounts").
+ * Both live in the same collection, split by `kind`.
+ */
+export type IdeaKind = "content" | "account";
+
+/** Broad content lane, so ideas can be grouped by the joke format they use. */
+export const IDEA_CATEGORIES = [
+  "band-logo-parody",
+  "name-acrostic",
+  "relationship",
+  "pick-one",
+  "wholesome-illustrated",
+  "corporate-parody",
+  "absurd-oneliner",
+  "other",
+] as const;
+
+export type IdeaCategory = (typeof IDEA_CATEGORIES)[number];
+
+/** How safe the reference is to imitate on a brand account. */
+export const IDEA_RISK_LEVELS = ["safe", "edgy", "avoid"] as const;
+export type IdeaRisk = (typeof IDEA_RISK_LEVELS)[number];
+
 export type Idea = {
   id: string;
+  kind: IdeaKind;
+  title: string;
   sourceUsername: string;
   sourceUrl: string;
   mediaUrl: string;
   thumbnailUrl: string;
   isVideo: boolean;
-  shirtText: string;
+  category: IdeaCategory;
+  risk: IdeaRisk;
   note: string;
   captionIdea: string;
   likes: number;
   comments: number;
+  followers: number;
+  postCount: number;
   used: boolean;
 };
 
-type IdeaDoc = {
-  sourceUsername: string;
-  sourceUrl: string;
-  mediaUrl: string;
-  thumbnailUrl: string;
-  isVideo: boolean;
-  shirtText: string;
-  note: string;
-  captionIdea: string;
-  likes: number;
-  comments: number;
-  used: boolean;
+type IdeaDoc = Omit<Idea, "id"> & {
   createdAt: Date;
   updatedAt: Date;
 };
@@ -89,19 +108,40 @@ function normalizeCount(value: unknown): number {
   return Math.floor(num);
 }
 
+function normalizeKind(value: unknown): IdeaKind {
+  return value === "account" ? "account" : "content";
+}
+
+function normalizeCategory(value: unknown): IdeaCategory {
+  return IDEA_CATEGORIES.includes(value as IdeaCategory)
+    ? (value as IdeaCategory)
+    : "other";
+}
+
+function normalizeRisk(value: unknown): IdeaRisk {
+  return IDEA_RISK_LEVELS.includes(value as IdeaRisk)
+    ? (value as IdeaRisk)
+    : "safe";
+}
+
 function toIdea(doc: IdeaDoc & { _id: ObjectId }): Idea {
   return {
     id: doc._id.toHexString(),
+    kind: normalizeKind(doc.kind),
+    title: doc.title ?? "",
     sourceUsername: doc.sourceUsername ?? "",
     sourceUrl: doc.sourceUrl ?? "",
     mediaUrl: doc.mediaUrl ?? "",
     thumbnailUrl: doc.thumbnailUrl ?? "",
     isVideo: doc.isVideo === true,
-    shirtText: doc.shirtText ?? "",
+    category: normalizeCategory(doc.category),
+    risk: normalizeRisk(doc.risk),
     note: doc.note ?? "",
     captionIdea: doc.captionIdea ?? "",
     likes: doc.likes ?? 0,
     comments: doc.comments ?? 0,
+    followers: doc.followers ?? 0,
+    postCount: doc.postCount ?? 0,
     used: doc.used === true,
   };
 }
@@ -111,61 +151,63 @@ async function ideasCollection(): Promise<Collection<IdeaDoc>> {
   return db.collection<IdeaDoc>("ideas");
 }
 
-export async function listIdeas(): Promise<Idea[]> {
+export async function listIdeas(kind?: IdeaKind): Promise<Idea[]> {
   const collection = await ideasCollection();
+  const filter = kind ? { kind } : {};
   const docs = await collection
-    .find()
-    .sort({ used: 1, likes: -1, createdAt: -1 })
+    .find(filter)
+    .sort({ used: 1, likes: -1, followers: -1, createdAt: -1 })
     .toArray();
   return docs.map(toIdea);
 }
 
-type IdeaFields = {
-  sourceUsername?: unknown;
-  sourceUrl?: unknown;
-  mediaUrl?: unknown;
-  thumbnailUrl?: unknown;
-  isVideo?: unknown;
-  shirtText?: unknown;
-  note?: unknown;
-  captionIdea?: unknown;
-  likes?: unknown;
-  comments?: unknown;
-  used?: unknown;
-};
+type IdeaFields = Partial<Record<keyof Idea, unknown>>;
 
 export async function createIdea(fields: IdeaFields): Promise<Idea> {
   const sourceUrl = normalizeHttpUrl(fields.sourceUrl);
   const thumbnailUrl = normalizeHttpUrl(fields.thumbnailUrl);
-  if (!sourceUrl && !thumbnailUrl) {
-    throw new IdeaError("Add a source or thumbnail URL.", 400);
+  const title = normalizeText(fields.title, 400);
+  if (!sourceUrl && !thumbnailUrl && !title) {
+    throw new IdeaError("Add a title or source URL.", 400);
   }
 
   const now = new Date();
   const doc: IdeaDoc = {
+    kind: normalizeKind(fields.kind),
+    title,
     sourceUsername: normalizeText(fields.sourceUsername, 80),
     sourceUrl,
     mediaUrl: normalizeHttpUrl(fields.mediaUrl),
     thumbnailUrl,
     isVideo: fields.isVideo === true,
-    shirtText: normalizeText(fields.shirtText, 400),
+    category: normalizeCategory(fields.category),
+    risk: normalizeRisk(fields.risk),
     note: normalizeText(fields.note),
     captionIdea: normalizeText(fields.captionIdea, 400),
     likes: normalizeCount(fields.likes),
     comments: normalizeCount(fields.comments),
+    followers: normalizeCount(fields.followers),
+    postCount: normalizeCount(fields.postCount),
     used: fields.used === true,
     createdAt: now,
     updatedAt: now,
   };
 
   const collection = await ideasCollection();
-  // Same post scraped twice shouldn't create a duplicate row.
+  // Re-scraping the same post/account refreshes it instead of duplicating.
   if (doc.sourceUrl) {
     const existing = await collection.findOne({ sourceUrl: doc.sourceUrl });
     if (existing) {
       const updated = await collection.findOneAndUpdate(
         { _id: existing._id },
-        { $set: { ...doc, createdAt: existing.createdAt, updatedAt: now } },
+        {
+          $set: {
+            ...doc,
+            used: existing.used === true,
+            createdAt: existing.createdAt,
+            updatedAt: now,
+          },
+        },
         { returnDocument: "after" },
       );
       if (updated) {
@@ -190,14 +232,23 @@ export async function updateIdea(
   const update: Partial<IdeaDoc> & { updatedAt: Date } = {
     updatedAt: new Date(),
   };
-  if (fields.shirtText !== undefined) {
-    update.shirtText = normalizeText(fields.shirtText, 400);
+  if (fields.title !== undefined) {
+    update.title = normalizeText(fields.title, 400);
   }
   if (fields.note !== undefined) {
     update.note = normalizeText(fields.note);
   }
   if (fields.captionIdea !== undefined) {
     update.captionIdea = normalizeText(fields.captionIdea, 400);
+  }
+  if (fields.category !== undefined) {
+    update.category = normalizeCategory(fields.category);
+  }
+  if (fields.risk !== undefined) {
+    update.risk = normalizeRisk(fields.risk);
+  }
+  if (fields.thumbnailUrl !== undefined) {
+    update.thumbnailUrl = normalizeHttpUrl(fields.thumbnailUrl);
   }
   if (fields.used !== undefined) {
     update.used = fields.used === true;
