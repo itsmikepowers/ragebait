@@ -16,7 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScoreBadge } from "@/components/score-badge";
-import { ClipReview, RatingBadge } from "@/components/clip-review";
+import { ClipReview, RatingBadge, StatusBadge } from "@/components/clip-review";
+import {
+  CLIP_REVIEW_STATUS_SPECS,
+  clipReviewStatus,
+  type ClipReviewStatus,
+} from "@/lib/clipping-meta";
 import {
   CLIP_STYLE_SPECS,
   CLIP_STYLE_SPEC_FIELDS,
@@ -50,6 +55,7 @@ type ClipSource = {
   rating: number;
   feedback: string;
   ratedAt: string;
+  reviewStatus: ClipReviewStatus;
 };
 
 function formatDuration(seconds: number): string {
@@ -127,6 +133,7 @@ export default function ClipsPage({
   const [viewClip, setViewClip] = useState<ClipSource | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [lane, setLane] = useState<ClipReviewStatus>("review");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,19 +170,23 @@ export default function ClipsPage({
   const poster = source ? posterSrc(source) : null;
   const videoSrc = source?.video ? buildCdnUrl(source.video.path) : null;
 
-  // Review progress at a glance: how many are cleared to post, how many were
-  // reviewed and rejected, how many nobody has looked at yet.
-  const reviewSummary = (() => {
-    if (clips.length === 0) return "";
-    const ready = clips.filter((c) => c.rating === 5).length;
-    const needsWork = clips.filter((c) => c.rating >= 1 && c.rating <= 4).length;
-    const unreviewed = clips.filter((c) => !c.rating).length;
-    const parts: string[] = [];
-    if (ready) parts.push(`${ready} would post`);
-    if (needsWork) parts.push(`${needsWork} need work`);
-    if (unreviewed) parts.push(`${unreviewed} unreviewed`);
-    return parts.join(" · ");
-  })();
+  // Cutting a big batch off one source and then triaging it is the whole
+  // point, so the grid is filtered by lane rather than showing everything at
+  // once. Counts come off the full list so an empty lane still shows a 0.
+  const laneCounts = CLIP_REVIEW_STATUS_SPECS.reduce<
+    Record<ClipReviewStatus, number>
+  >(
+    (acc, spec) => {
+      acc[spec.value] = clips.filter(
+        (c) => clipReviewStatus(c.reviewStatus) === spec.value,
+      ).length;
+      return acc;
+    },
+    { review: 0, ready: 0, archived: 0 },
+  );
+  const visibleClips = clips.filter(
+    (c) => clipReviewStatus(c.reviewStatus) === lane,
+  );
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
@@ -297,19 +308,55 @@ export default function ClipsPage({
             <h2 className="text-sm font-medium">
               Clips{" "}
               <span className="text-muted-foreground">({clips.length})</span>
-              {reviewSummary ? (
-                <span className="ml-2 font-normal text-muted-foreground">
-                  {reviewSummary}
-                </span>
-              ) : null}
             </h2>
+
+            {clips.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {CLIP_REVIEW_STATUS_SPECS.map((spec) => {
+                  const active = lane === spec.value;
+                  return (
+                    <button
+                      key={spec.value}
+                      type="button"
+                      onClick={() => setLane(spec.value)}
+                      title={spec.meaning}
+                      aria-pressed={active}
+                      className={`h-8 cursor-pointer rounded-md border px-3 text-xs font-medium transition-colors ${
+                        active
+                          ? "border-transparent"
+                          : "border-input text-muted-foreground hover:bg-black/5 hover:text-foreground"
+                      }`}
+                      style={
+                        active
+                          ? { backgroundColor: spec.bg, color: spec.fg }
+                          : undefined
+                      }
+                    >
+                      {spec.label}{" "}
+                      <span className="tabular-nums opacity-70">
+                        {laneCounts[spec.value]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
             {clips.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
                 No clips cut from this video yet.
               </p>
+            ) : visibleClips.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                {lane === "ready"
+                  ? "Nothing cleared to post yet — rate a clip 5 to file it here."
+                  : lane === "archived"
+                    ? "Nothing archived."
+                    : "Everything here has been triaged."}
+              </p>
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
-                {clips.map((clip) => (
+                {visibleClips.map((clip) => (
                   <button
                     key={clip.id}
                     type="button"
@@ -338,6 +385,9 @@ export default function ClipsPage({
                       </span>
                       <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                         {formatDuration(clip.durationSeconds)}
+                      </span>
+                      <span className="absolute bottom-1.5 left-1.5">
+                        <StatusBadge status={clipReviewStatus(clip.reviewStatus)} />
                       </span>
                     </span>
                     <span className="block p-2">
@@ -418,6 +468,7 @@ export default function ClipsPage({
                     clipId={viewClip.id}
                     rating={viewClip.rating}
                     feedback={viewClip.feedback}
+                    reviewStatus={clipReviewStatus(viewClip.reviewStatus)}
                     onSaved={(patch) => {
                       // Keep the grid badge and the open dialog in step
                       // without refetching the whole page.

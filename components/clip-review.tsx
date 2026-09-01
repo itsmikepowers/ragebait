@@ -5,8 +5,12 @@ import { cn } from "@/lib/utils";
 import {
   CLIP_RATINGS,
   CLIP_RATING_BY_VALUE,
+  CLIP_REVIEW_STATUS_SPECS,
+  CLIP_REVIEW_STATUS_BY_VALUE,
   clipRatingColor,
+  suggestedReviewStatus,
   type ClipRating,
+  type ClipReviewStatus,
 } from "@/lib/clipping-meta";
 
 /**
@@ -61,18 +65,53 @@ export function RatingBadge({
   );
 }
 
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: ClipReviewStatus;
+  className?: string;
+}) {
+  const spec = CLIP_REVIEW_STATUS_BY_VALUE[status];
+  // "Needs review" is the default lane for everything, so badging it would
+  // put a marker on nearly every card and say nothing. Only filed clips
+  // carry a badge.
+  if (!spec || status === "review") {
+    return null;
+  }
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-white/30",
+        className,
+      )}
+      style={{ backgroundColor: spec.bg, color: spec.fg }}
+      title={spec.meaning}
+    >
+      {status === "ready" ? "Good to go" : "Archived"}
+    </span>
+  );
+}
+
 export function ClipReview({
   clipId,
   rating,
   feedback,
+  reviewStatus,
   onSaved,
 }: {
   clipId: string;
   rating: number;
   feedback: string;
-  onSaved?: (patch: { rating?: number; feedback?: string }) => void;
+  reviewStatus: ClipReviewStatus;
+  onSaved?: (patch: {
+    rating?: number;
+    feedback?: string;
+    reviewStatus?: ClipReviewStatus;
+  }) => void;
 }) {
   const [localRating, setLocalRating] = useState(rating);
+  const [localStatus, setLocalStatus] = useState<ClipReviewStatus>(reviewStatus);
   const [localFeedback, setLocalFeedback] = useState(feedback);
   const [state, setState] = useState<SaveState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,6 +122,7 @@ export function ClipReview({
   // not, so an in-flight response can't clobber live typing.
   useEffect(() => {
     setLocalRating(rating);
+    setLocalStatus(reviewStatus);
     setLocalFeedback(feedback);
     savedFeedback.current = feedback;
     setState("idle");
@@ -90,7 +130,11 @@ export function ClipReview({
   }, [clipId]);
 
   const save = useCallback(
-    async (body: { rating?: number; feedback?: string }) => {
+    async (body: {
+      rating?: number;
+      feedback?: string;
+      reviewStatus?: ClipReviewStatus;
+    }) => {
       setState("saving");
       try {
         const response = await fetch(`/api/clipping/${clipId}`, {
@@ -118,7 +162,24 @@ export function ClipReview({
     // Clicking the active number clears the rating back to "not reviewed".
     const next = localRating === value ? 0 : value;
     setLocalRating(next);
-    save({ rating: next });
+    // Rating a clip files it in one motion: a 5 is good to go, a 1 or 2 is
+    // archived, anything else stays in review. Only auto-file on a real
+    // rating, and never override a lane that was already set by hand.
+    const suggested = next ? suggestedReviewStatus(next) : null;
+    const shouldFile =
+      suggested !== null && suggested !== localStatus && localStatus === "review";
+    if (shouldFile) {
+      setLocalStatus(suggested);
+      save({ rating: next, reviewStatus: suggested });
+    } else {
+      save({ rating: next });
+    }
+  }
+
+  function setStatus(value: ClipReviewStatus) {
+    if (value === localStatus) return;
+    setLocalStatus(value);
+    save({ reviewStatus: value });
   }
 
   function onFeedbackChange(value: string) {
@@ -212,6 +273,35 @@ export function ClipReview({
       <p className="min-h-4 text-[11px] text-muted-foreground">
         {activeSpec ? activeSpec.meaning : "1 = unusable · 5 = would post as-is"}
       </p>
+
+      <span className="mt-1 text-xs font-medium text-muted-foreground">
+        Status
+      </span>
+      <div className="flex gap-1.5">
+        {CLIP_REVIEW_STATUS_SPECS.map((spec) => {
+          const active = localStatus === spec.value;
+          return (
+            <button
+              key={spec.value}
+              type="button"
+              onClick={() => setStatus(spec.value)}
+              title={spec.meaning}
+              aria-pressed={active}
+              className={cn(
+                "h-8 flex-1 cursor-pointer rounded-md border px-2 text-xs font-medium transition-colors",
+                active
+                  ? "border-transparent"
+                  : "border-input text-muted-foreground hover:bg-black/5 hover:text-foreground",
+              )}
+              style={
+                active ? { backgroundColor: spec.bg, color: spec.fg } : undefined
+              }
+            >
+              {spec.label}
+            </button>
+          );
+        })}
+      </div>
 
       <label
         htmlFor={`review-feedback-${clipId}`}

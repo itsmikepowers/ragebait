@@ -54,6 +54,8 @@ type ClipSource = {
   clipStart: number;
   transcript: string;
   clipCount?: number;
+  readyCount?: number;
+  reviewCount?: number;
   score: number;
   style: string;
 };
@@ -981,8 +983,36 @@ export default function ClippingPage() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {source.clipCount ? (
-                          <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium">
-                            {source.clipCount}
+                          <span className="flex items-center gap-1">
+                            <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium">
+                              {source.clipCount}
+                            </span>
+                            {/* Triage progress: cleared to post, and how
+                                many are still waiting to be judged. */}
+                            {source.readyCount ? (
+                              <span
+                                className="rounded-full px-2 py-0.5 text-xs font-medium"
+                                style={{
+                                  backgroundColor: "hsl(130 85% 45%)",
+                                  color: "#fff",
+                                }}
+                                title={`${source.readyCount} cleared to post`}
+                              >
+                                {source.readyCount}
+                              </span>
+                            ) : null}
+                            {source.reviewCount ? (
+                              <span
+                                className="rounded-full px-2 py-0.5 text-xs font-medium"
+                                style={{
+                                  backgroundColor: "hsl(45 85% 52%)",
+                                  color: "#1a1a1a",
+                                }}
+                                title={`${source.reviewCount} still need review`}
+                              >
+                                {source.reviewCount}
+                              </span>
+                            ) : null}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>

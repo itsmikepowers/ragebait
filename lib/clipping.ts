@@ -9,7 +9,12 @@ import {
   ensureR2BrowserUploadCors,
   r2ObjectExists,
 } from "./cloudflare";
-import { CLIP_STYLES, type ClipStyle } from "./clipping-meta";
+import {
+  CLIP_STYLES,
+  clipReviewStatus,
+  type ClipReviewStatus,
+  type ClipStyle,
+} from "./clipping-meta";
 import { getDb } from "./mongodb";
 import {
   createImageUploadPlan,
@@ -51,6 +56,10 @@ export type ClipSource = {
   transcript: string;
   /** Number of clips cut from this source (list view only). */
   clipCount?: number;
+  /** How many of this source's clips are cleared to post (list view only). */
+  readyCount?: number;
+  /** How many are still awaiting triage (list view only). */
+  reviewCount?: number;
   /** Virality score 0-10, one decimal. 0 means unscored. */
   score: number;
   /** How this clip was edited (framing/font/captions/animation). "" for sources. */
@@ -61,6 +70,8 @@ export type ClipSource = {
   feedback: string;
   /** When the rating/feedback was last saved (ISO), "" if never. */
   ratedAt: string;
+  /** Triage lane after review: "review" | "ready" | "archived". */
+  reviewStatus: ClipReviewStatus;
 };
 
 export {
@@ -74,8 +85,21 @@ export {
   CLIP_RATING_BY_VALUE,
   clipRatingLabel,
   clipRatingColor,
+  CLIP_REVIEW_STATUSES,
+  CLIP_REVIEW_STATUS_SPECS,
+  CLIP_REVIEW_STATUS_BY_VALUE,
+  clipReviewStatus,
+  clipReviewStatusLabel,
+  suggestedReviewStatus,
 } from "./clipping-meta";
-export type { ClipStyle, ClipStyleSpec, ClipRating, ClipRatingSpec } from "./clipping-meta";
+export type {
+  ClipStyle,
+  ClipStyleSpec,
+  ClipRating,
+  ClipRatingSpec,
+  ClipReviewStatus,
+  ClipReviewStatusSpec,
+} from "./clipping-meta";
 
 export type ClipKind = "source" | "clip";
 export const CLIP_KINDS = ["source", "clip"] as const;
@@ -103,6 +127,7 @@ type ClipSourceDoc = {
   rating?: number;
   feedback?: string;
   ratedAt?: Date | null;
+  reviewStatus?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -326,6 +351,9 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
       doc.ratedAt instanceof Date && !Number.isNaN(doc.ratedAt.getTime())
         ? doc.ratedAt.toISOString()
         : "",
+    // Rows written before triage existed read as "needs review", which is
+    // exactly right: nobody has filed them.
+    reviewStatus: clipReviewStatus(doc.reviewStatus),
   };
 }
 
@@ -342,18 +370,31 @@ export async function listClipSources(): Promise<ClipSource[]> {
     .toArray();
   const rows = docs.map(toClipSource);
 
-  // Attach each source's clip count so the list can show it without a
-  // second round trip.
+  // Attach each source's clip counts (total, cleared, still to triage) so
+  // the list can show review progress without a second round trip.
   const counts = new Map<string, number>();
+  const ready = new Map<string, number>();
+  const toReview = new Map<string, number>();
   for (const row of rows) {
-    if (row.kind === "clip" && row.parentId) {
-      counts.set(row.parentId, (counts.get(row.parentId) ?? 0) + 1);
+    if (row.kind !== "clip" || !row.parentId) {
+      continue;
+    }
+    counts.set(row.parentId, (counts.get(row.parentId) ?? 0) + 1);
+    if (row.reviewStatus === "ready") {
+      ready.set(row.parentId, (ready.get(row.parentId) ?? 0) + 1);
+    } else if (row.reviewStatus === "review") {
+      toReview.set(row.parentId, (toReview.get(row.parentId) ?? 0) + 1);
     }
   }
   return rows.map((row) =>
     row.kind === "clip"
       ? row
-      : { ...row, clipCount: counts.get(row.id) ?? 0 },
+      : {
+          ...row,
+          clipCount: counts.get(row.id) ?? 0,
+          readyCount: ready.get(row.id) ?? 0,
+          reviewCount: toReview.get(row.id) ?? 0,
+        },
   );
 }
 
@@ -549,6 +590,7 @@ type ClippingFields = {
   style?: unknown;
   rating?: unknown;
   feedback?: unknown;
+  reviewStatus?: unknown;
 };
 
 export async function createClipSource(
@@ -612,6 +654,7 @@ export async function createClipSource(
     rating: normalizeRating(fields.rating),
     feedback: normalizeText(fields.feedback, FEEDBACK_MAX),
     ratedAt: null,
+    reviewStatus: clipReviewStatus(fields.reviewStatus),
     createdAt: now,
     updatedAt: now,
   };
@@ -690,6 +733,9 @@ export async function updateClipSource(
   if (fields.feedback !== undefined) {
     update.feedback = normalizeText(fields.feedback, FEEDBACK_MAX);
     update.ratedAt = new Date();
+  }
+  if (fields.reviewStatus !== undefined) {
+    update.reviewStatus = clipReviewStatus(fields.reviewStatus);
   }
   if (fields.parentId !== undefined) {
     update.parentId =
