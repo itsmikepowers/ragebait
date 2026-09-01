@@ -275,7 +275,7 @@ export function IdeasGallery({
                     {formatCount(idea.followers)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {formatCount(idea.postCount)}
+                    {idea.postCount > 0 ? formatCount(idea.postCount) : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {categoryLabel(idea.category)}
@@ -432,7 +432,13 @@ export function IdeasGallery({
                 <DialogDescription>
                   {viewIdea
                     ? viewIdea.kind === "account"
-                      ? `@${viewIdea.sourceUsername} · ${formatCount(viewIdea.followers)} followers · ${formatCount(viewIdea.postCount)} posts`
+                      ? [
+                          `@${viewIdea.sourceUsername}`,
+                          `${formatCount(viewIdea.followers)} followers`,
+                          ...(viewIdea.postCount > 0
+                            ? [`${formatCount(viewIdea.postCount)} posts`]
+                            : []),
+                        ].join(" · ")
                       : `@${viewIdea.sourceUsername} · ${formatCount(viewIdea.likes)} likes · ${formatCount(viewIdea.comments)} comments`
                     : null}
                 </DialogDescription>
