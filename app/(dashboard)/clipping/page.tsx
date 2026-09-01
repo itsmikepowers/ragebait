@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { format } from "date-fns";
 import { LuFileVideo, LuLink, LuPlay, LuUpload } from "react-icons/lu";
@@ -45,8 +46,10 @@ type ClipSource = {
   releasedDate: string;
   durationSeconds: number;
   sizeBytes: number;
-  video: MediaRef;
+  video: MediaRef | null;
   thumbnail: MediaRef | null;
+  thumbnailUrl: string;
+  bucket: string;
   clipped: boolean;
   kind: "source" | "clip";
   parentId: string;
@@ -597,6 +600,7 @@ function ClipFields({
 }
 
 export default function ClippingPage() {
+  const router = useRouter();
   const [sources, setSources] = useState<ClipSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<ClipDraft>(emptyDraft);
@@ -988,16 +992,26 @@ export default function ClippingPage() {
                     <TableRow
                       key={source.id}
                       className="cursor-pointer"
-                      onClick={() => openViewer(source)}
+                      onClick={() => router.push(`/clipping/${source.id}/clips`)}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">
-                          <MediaThumb
-                            media={source.thumbnail}
-                            fallbackLabel={source.title}
-                            size={56}
-                            className="rounded-md"
-                          />
+                          {!source.thumbnail && source.thumbnailUrl ? (
+                            // External poster (YouTube CDN), so a plain img.
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={source.thumbnailUrl}
+                              alt=""
+                              className="block size-14 shrink-0 rounded-md bg-black/5 object-cover"
+                            />
+                          ) : (
+                            <MediaThumb
+                              media={source.thumbnail}
+                              fallbackLabel={source.title}
+                              size={56}
+                              className="rounded-md"
+                            />
+                          )}
                           <span className="min-w-0">
                             <span className="block max-w-[22rem] truncate">
                               {source.title}
@@ -1073,7 +1087,7 @@ export default function ClippingPage() {
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
             <div className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black">
               {viewSource ? (
-                viewPlaying ? (
+                viewPlaying && viewSource.video ? (
                   <video
                     className="max-h-[65vh] w-full object-contain"
                     src={buildCdnUrl(viewSource.video.path) ?? undefined}
@@ -1084,7 +1098,7 @@ export default function ClippingPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setViewPlaying(true)}
+                    onClick={() => viewSource.video && setViewPlaying(true)}
                     className="group relative flex w-full cursor-pointer items-center justify-center"
                     aria-label="Play video"
                   >

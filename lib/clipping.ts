@@ -32,8 +32,13 @@ export type ClipSource = {
   releasedDate: string;
   durationSeconds: number;
   sizeBytes: number;
-  video: MediaRef;
+  /** Null when a source is cataloged without uploading the master file. */
+  video: MediaRef | null;
   thumbnail: MediaRef | null;
+  /** External poster (e.g. the YouTube thumbnail) when no file was uploaded. */
+  thumbnailUrl: string;
+  /** Grouping label for clips, e.g. "hook", "wisdom", "highlight". */
+  bucket: string;
   clipped: boolean;
   /** "source" = the full long-form video; "clip" = a short cut from one. */
   kind: ClipKind;
@@ -57,8 +62,10 @@ type ClipSourceDoc = {
   releasedDate?: Date | null;
   durationSeconds?: number;
   sizeBytes?: number;
-  video: MediaRef;
+  video?: MediaRef | null;
   thumbnail?: MediaRef | null;
+  thumbnailUrl?: string;
+  bucket?: string;
   clipped?: boolean;
   kind?: ClipKind;
   parentId?: string;
@@ -225,8 +232,10 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
     releasedDate: releasedDateToIso(doc.releasedDate),
     durationSeconds: doc.durationSeconds ?? 0,
     sizeBytes: doc.sizeBytes ?? 0,
-    video: doc.video,
+    video: doc.video ?? null,
     thumbnail: doc.thumbnail ?? null,
+    thumbnailUrl: doc.thumbnailUrl ?? "",
+    bucket: doc.bucket ?? "",
     clipped: doc.clipped === true,
     // Rows written before clips existed are all full source videos.
     kind: doc.kind === "clip" ? "clip" : "source",
@@ -246,6 +255,30 @@ export async function listClipSources(): Promise<ClipSource[]> {
   const docs = await collection
     .find()
     .sort({ kind: 1, clipStart: 1, createdAt: -1 })
+    .toArray();
+  return docs.map(toClipSource);
+}
+
+export async function getClipSource(rawId: string): Promise<ClipSource | null> {
+  const id = parseId(rawId);
+  if (!id) {
+    return null;
+  }
+  const collection = await clippingCollection();
+  const doc = await collection.findOne({ _id: id });
+  return doc ? toClipSource(doc) : null;
+}
+
+/** Clips cut from a given source, ordered by where they start in it. */
+export async function listClipsForSource(rawId: string): Promise<ClipSource[]> {
+  const id = parseId(rawId);
+  if (!id) {
+    return [];
+  }
+  const collection = await clippingCollection();
+  const docs = await collection
+    .find({ kind: "clip", parentId: id.toHexString() })
+    .sort({ clipStart: 1 })
     .toArray();
   return docs.map(toClipSource);
 }
@@ -412,17 +445,28 @@ type ClippingFields = {
   parentId?: unknown;
   clipStart?: unknown;
   transcript?: unknown;
+  thumbnailUrl?: unknown;
+  bucket?: unknown;
 };
 
 export async function createClipSource(
   fields: ClippingFields,
 ): Promise<ClipSource> {
-  const video = parseRequiredMediaRef(fields.video, CLIPPING_PATH_RE);
-  if (!video) {
+  // A source can be cataloged without its (multi-GB) master file; clips must
+  // always carry real media.
+  const isClip = fields.kind === "clip";
+  let video: MediaRef | null = null;
+  if (fields.video != null) {
+    const parsed = parseRequiredMediaRef(fields.video, CLIPPING_PATH_RE);
+    if (!parsed) {
+      throw new ClippingError("Upload a video.", 400);
+    }
+    if (!(await r2ObjectExists(parsed.path))) {
+      throw new ClippingError("Could not upload that video.", 400);
+    }
+    video = parsed;
+  } else if (isClip) {
     throw new ClippingError("Upload a video.", 400);
-  }
-  if (!(await r2ObjectExists(video.path))) {
-    throw new ClippingError("Could not upload that video.", 400);
   }
   const thumbnail = parseOptionalMediaRef(
     fields.thumbnail,
@@ -451,6 +495,8 @@ export async function createClipSource(
     sizeBytes: normalizeCount(fields.sizeBytes),
     video,
     thumbnail,
+    thumbnailUrl: normalizeHttpUrl(fields.thumbnailUrl),
+    bucket: normalizeText(fields.bucket, 60).toLowerCase(),
     clipped: fields.clipped === true,
     kind: fields.kind === "clip" ? "clip" : "source",
     parentId:
@@ -468,7 +514,9 @@ export async function createClipSource(
     const result = await collection.insertOne(doc);
     return toClipSource({ ...doc, _id: result.insertedId });
   } catch (error) {
-    await deleteFileFromCloudflare(video.path).catch(() => undefined);
+    if (video) {
+      await deleteFileFromCloudflare(video.path).catch(() => undefined);
+    }
     if (thumbnail) {
       await deleteFileFromCloudflare(thumbnail.path).catch(() => undefined);
     }
@@ -515,6 +563,9 @@ export async function updateClipSource(
   }
   if (fields.transcript !== undefined) {
     update.transcript = normalizeText(fields.transcript, NOTE_MAX);
+  }
+  if (fields.bucket !== undefined) {
+    update.bucket = normalizeText(fields.bucket, 60).toLowerCase();
   }
 
   const collection = await clippingCollection();
