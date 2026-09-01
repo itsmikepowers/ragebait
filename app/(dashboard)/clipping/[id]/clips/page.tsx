@@ -16,6 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScoreBadge } from "@/components/score-badge";
+import {
+  CLIP_STYLE_SPECS,
+  clipStyleLabel,
+  type ClipStyle,
+} from "@/lib/clipping-meta";
 import { buildCdnUrl } from "@/lib/cdn";
 
 type MediaRef = { path: string; width: number; height: number };
@@ -39,6 +44,7 @@ type ClipSource = {
   clipStart: number;
   transcript: string;
   score: number;
+  style: string;
 };
 
 function formatDuration(seconds: number): string {
@@ -360,6 +366,35 @@ export default function ClipsPage({
                     <p className="text-sm whitespace-pre-wrap">
                       {viewClip.note}
                     </p>
+                  ) : null}
+                  {viewClip.style ? (
+                    <div className="grid gap-1">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Edit style
+                      </span>
+                      <p className="text-sm font-medium">
+                        {clipStyleLabel(viewClip.style)}
+                      </p>
+                      {CLIP_STYLE_SPECS[viewClip.style as ClipStyle] ? (
+                        <dl className="mt-1 grid gap-1 text-sm">
+                          {(
+                            [
+                              ["Framing", "framing"],
+                              ["Font", "font"],
+                              ["Captions", "captions"],
+                              ["Animation", "animation"],
+                            ] as const
+                          ).map(([label, key]) => (
+                            <div key={key} className="grid grid-cols-[84px_1fr] gap-2">
+                              <dt className="text-muted-foreground">{label}</dt>
+                              <dd>
+                                {CLIP_STYLE_SPECS[viewClip.style as ClipStyle][key]}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : null}
+                    </div>
                   ) : null}
                   {viewClip.transcript ? (
                     <div className="grid gap-1">

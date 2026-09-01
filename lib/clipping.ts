@@ -9,6 +9,7 @@ import {
   ensureR2BrowserUploadCors,
   r2ObjectExists,
 } from "./cloudflare";
+import { CLIP_STYLES, type ClipStyle } from "./clipping-meta";
 import { getDb } from "./mongodb";
 import {
   createImageUploadPlan,
@@ -52,7 +53,17 @@ export type ClipSource = {
   clipCount?: number;
   /** Virality score 0-10, one decimal. 0 means unscored. */
   score: number;
+  /** How this clip was edited (framing/font/captions/animation). "" for sources. */
+  style: string;
 };
+
+export {
+  CLIP_STYLES,
+  CLIP_STYLE_LABELS,
+  CLIP_STYLE_SPECS,
+  clipStyleLabel,
+} from "./clipping-meta";
+export type { ClipStyle, ClipStyleSpec } from "./clipping-meta";
 
 export type ClipKind = "source" | "clip";
 export const CLIP_KINDS = ["source", "clip"] as const;
@@ -76,6 +87,7 @@ type ClipSourceDoc = {
   parentId?: string;
   clipStart?: number;
   transcript?: string;
+  style?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -226,6 +238,15 @@ function normalizeCount(value: unknown): number {
   return Math.round(num);
 }
 
+/** Edit style: only known styles are stored; anything else becomes "". */
+function normalizeStyle(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim().toLowerCase();
+  return CLIP_STYLES.includes(trimmed as ClipStyle) ? trimmed : "";
+}
+
 /** Virality score: clamped to 0-10 and rounded to one decimal. */
 function normalizeScore(value: unknown): number {
   const num =
@@ -262,6 +283,7 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
     parentId: doc.parentId ?? "",
     clipStart: doc.clipStart ?? 0,
     transcript: doc.transcript ?? "",
+    style: doc.style ?? "",
   };
 }
 
@@ -482,6 +504,7 @@ type ClippingFields = {
   thumbnailUrl?: unknown;
   bucket?: unknown;
   score?: unknown;
+  style?: unknown;
 };
 
 export async function createClipSource(
@@ -541,6 +564,7 @@ export async function createClipSource(
         : "",
     clipStart: normalizeCount(fields.clipStart),
     transcript: normalizeText(fields.transcript, NOTE_MAX),
+    style: normalizeStyle(fields.style),
     createdAt: now,
     updatedAt: now,
   };
@@ -605,6 +629,9 @@ export async function updateClipSource(
   }
   if (fields.score !== undefined) {
     update.score = normalizeScore(fields.score);
+  }
+  if (fields.style !== undefined) {
+    update.style = normalizeStyle(fields.style);
   }
   if (fields.parentId !== undefined) {
     update.parentId =
