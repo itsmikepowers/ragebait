@@ -35,7 +35,18 @@ export type ClipSource = {
   video: MediaRef;
   thumbnail: MediaRef | null;
   clipped: boolean;
+  /** "source" = the full long-form video; "clip" = a short cut from one. */
+  kind: ClipKind;
+  /** For clips: the id of the source row this was cut from ("" if none). */
+  parentId: string;
+  /** Seconds into the source video this clip starts (0 for sources). */
+  clipStart: number;
+  /** Burned-in caption text / transcript for this clip. */
+  transcript: string;
 };
+
+export type ClipKind = "source" | "clip";
+export const CLIP_KINDS = ["source", "clip"] as const;
 
 type ClipSourceDoc = {
   title: string;
@@ -49,6 +60,10 @@ type ClipSourceDoc = {
   video: MediaRef;
   thumbnail?: MediaRef | null;
   clipped?: boolean;
+  kind?: ClipKind;
+  parentId?: string;
+  clipStart?: number;
+  transcript?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -213,6 +228,11 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
     video: doc.video,
     thumbnail: doc.thumbnail ?? null,
     clipped: doc.clipped === true,
+    // Rows written before clips existed are all full source videos.
+    kind: doc.kind === "clip" ? "clip" : "source",
+    parentId: doc.parentId ?? "",
+    clipStart: doc.clipStart ?? 0,
+    transcript: doc.transcript ?? "",
   };
 }
 
@@ -225,7 +245,7 @@ export async function listClipSources(): Promise<ClipSource[]> {
   const collection = await clippingCollection();
   const docs = await collection
     .find()
-    .sort({ clipped: 1, createdAt: -1 })
+    .sort({ kind: 1, clipStart: 1, createdAt: -1 })
     .toArray();
   return docs.map(toClipSource);
 }
@@ -388,6 +408,10 @@ type ClippingFields = {
   video?: unknown;
   thumbnail?: unknown;
   clipped?: unknown;
+  kind?: unknown;
+  parentId?: unknown;
+  clipStart?: unknown;
+  transcript?: unknown;
 };
 
 export async function createClipSource(
@@ -428,6 +452,13 @@ export async function createClipSource(
     video,
     thumbnail,
     clipped: fields.clipped === true,
+    kind: fields.kind === "clip" ? "clip" : "source",
+    parentId:
+      typeof fields.parentId === "string" && /^[a-fA-F0-9]{24}$/.test(fields.parentId)
+        ? fields.parentId
+        : "",
+    clipStart: normalizeCount(fields.clipStart),
+    transcript: normalizeText(fields.transcript, NOTE_MAX),
     createdAt: now,
     updatedAt: now,
   };
@@ -481,6 +512,9 @@ export async function updateClipSource(
   }
   if (fields.clipped !== undefined) {
     update.clipped = fields.clipped === true;
+  }
+  if (fields.transcript !== undefined) {
+    update.transcript = normalizeText(fields.transcript, NOTE_MAX);
   }
 
   const collection = await clippingCollection();

@@ -48,6 +48,10 @@ type ClipSource = {
   video: MediaRef;
   thumbnail: MediaRef | null;
   clipped: boolean;
+  kind: "source" | "clip";
+  parentId: string;
+  clipStart: number;
+  transcript: string;
 };
 
 type ClipDraft = {
@@ -800,6 +804,8 @@ export default function ClippingPage() {
     setRemoveOpen(false);
   }
 
+  const clips = sources.filter((item) => item.kind === "clip");
+  const sourceVideos = sources.filter((item) => item.kind !== "clip");
   const dialogOpen = addOpen || editOpen || removeOpen;
 
   return (
@@ -879,6 +885,60 @@ export default function ClippingPage() {
         </p>
       ) : (
         <div className="mt-8">
+          {clips.length > 0 ? (
+            <div className="mb-10">
+              <h2 className="text-sm font-medium">
+                Clips{" "}
+                <span className="text-muted-foreground">({clips.length})</span>
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vertical cuts with burned-in captions, ready to post.
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {clips.map((clip) => (
+                  <button
+                    key={clip.id}
+                    type="button"
+                    onClick={() => openViewer(clip)}
+                    className="group cursor-pointer overflow-hidden rounded-lg border border-black/10 text-left transition-colors hover:border-black/25"
+                  >
+                    <span className="relative block aspect-[9/16] w-full overflow-hidden bg-black">
+                      {clip.thumbnail ? (
+                        <Image
+                          src={buildCdnUrl(clip.thumbnail.path) ?? ""}
+                          alt=""
+                          width={clip.thumbnail.width}
+                          height={clip.thumbnail.height}
+                          unoptimized
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                      <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
+                        <span className="flex size-10 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/25">
+                          <LuPlay className="ml-0.5 size-4 fill-current" />
+                        </span>
+                      </span>
+                      <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        {formatDuration(clip.durationSeconds)}
+                      </span>
+                    </span>
+                    <span className="block p-2">
+                      <span className="block truncate text-xs font-medium">
+                        {clip.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                        {formatBytes(clip.sizeBytes)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {clips.length > 0 ? (
+            <h2 className="mb-3 text-sm font-medium">Source videos</h2>
+          ) : null}
           <Table>
             <TableHeader>
               <TableRow>
@@ -924,7 +984,7 @@ export default function ClippingPage() {
                       <TableCell />
                     </TableRow>
                   ))
-                : sources.map((source) => (
+                : sourceVideos.map((source) => (
                     <TableRow
                       key={source.id}
                       className="cursor-pointer"
@@ -1093,6 +1153,16 @@ export default function ClippingPage() {
                       )}
                     </p>
                   </div>
+                  {viewSource.transcript ? (
+                    <div className="grid gap-1">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Transcript
+                      </span>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {viewSource.transcript}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
