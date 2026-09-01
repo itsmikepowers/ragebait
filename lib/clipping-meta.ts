@@ -56,6 +56,20 @@ export const CLIP_STYLE_SPECS: Record<ClipStyle, ClipStyleSpec> = {
   },
 };
 
+/**
+ * Spec fields the dashboard actually renders, in display order.
+ *
+ * `animation` is deliberately absent: it stays in `CLIP_STYLE_SPECS` as
+ * metadata (and keeps being generated for every style), but is not surfaced
+ * on clip cards or dialogs. Any UI showing a style spec should map over this
+ * list rather than hard-coding its own row set.
+ */
+export const CLIP_STYLE_SPEC_FIELDS = [
+  ["Framing", "framing"],
+  ["Font", "font"],
+  ["Captions", "captions"],
+] as const satisfies ReadonlyArray<readonly [string, keyof ClipStyleSpec]>;
+
 /** Tolerates legacy rows and unknown values without throwing. */
 export function clipStyleLabel(value: string): string {
   return CLIP_STYLE_LABELS[value as ClipStyle] ?? value;

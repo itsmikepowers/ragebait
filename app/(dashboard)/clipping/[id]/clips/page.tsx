@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScoreBadge } from "@/components/score-badge";
 import {
   CLIP_STYLE_SPECS,
+  CLIP_STYLE_SPEC_FIELDS,
   clipStyleLabel,
   type ClipStyle,
 } from "@/lib/clipping-meta";
@@ -377,14 +378,7 @@ export default function ClipsPage({
                       </p>
                       {CLIP_STYLE_SPECS[viewClip.style as ClipStyle] ? (
                         <dl className="mt-1 grid gap-1 text-sm">
-                          {(
-                            [
-                              ["Framing", "framing"],
-                              ["Font", "font"],
-                              ["Captions", "captions"],
-                              ["Animation", "animation"],
-                            ] as const
-                          ).map(([label, key]) => (
+                          {CLIP_STYLE_SPEC_FIELDS.map(([label, key]) => (
                             <div key={key} className="grid grid-cols-[84px_1fr] gap-2">
                               <dt className="text-muted-foreground">{label}</dt>
                               <dd>

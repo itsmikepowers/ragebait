@@ -61,6 +61,7 @@ export {
   CLIP_STYLES,
   CLIP_STYLE_LABELS,
   CLIP_STYLE_SPECS,
+  CLIP_STYLE_SPEC_FIELDS,
   clipStyleLabel,
 } from "./clipping-meta";
 export type { ClipStyle, ClipStyleSpec } from "./clipping-meta";
