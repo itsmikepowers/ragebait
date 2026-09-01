@@ -50,6 +50,8 @@ export type ClipSource = {
   transcript: string;
   /** Number of clips cut from this source (list view only). */
   clipCount?: number;
+  /** Virality score 0-10, one decimal. 0 means unscored. */
+  score: number;
 };
 
 export type ClipKind = "source" | "clip";
@@ -68,6 +70,7 @@ type ClipSourceDoc = {
   thumbnail?: MediaRef | null;
   thumbnailUrl?: string;
   bucket?: string;
+  score?: number;
   clipped?: boolean;
   kind?: ClipKind;
   parentId?: string;
@@ -223,6 +226,20 @@ function normalizeCount(value: unknown): number {
   return Math.round(num);
 }
 
+/** Virality score: clamped to 0-10 and rounded to one decimal. */
+function normalizeScore(value: unknown): number {
+  const num =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+  if (!Number.isFinite(num) || num <= 0) {
+    return 0;
+  }
+  return Math.round(Math.min(10, num) * 10) / 10;
+}
+
 function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
   return {
     id: doc._id.toHexString(),
@@ -238,6 +255,7 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
     thumbnail: doc.thumbnail ?? null,
     thumbnailUrl: doc.thumbnailUrl ?? "",
     bucket: doc.bucket ?? "",
+    score: typeof doc.score === "number" ? doc.score : 0,
     clipped: doc.clipped === true,
     // Rows written before clips existed are all full source videos.
     kind: doc.kind === "clip" ? "clip" : "source",
@@ -294,7 +312,7 @@ export async function listClipsForSource(rawId: string): Promise<ClipSource[]> {
   const collection = await clippingCollection();
   const docs = await collection
     .find({ kind: "clip", parentId: id.toHexString() })
-    .sort({ clipStart: 1 })
+    .sort({ score: -1, clipStart: 1 })
     .toArray();
   return docs.map(toClipSource);
 }
@@ -463,6 +481,7 @@ type ClippingFields = {
   transcript?: unknown;
   thumbnailUrl?: unknown;
   bucket?: unknown;
+  score?: unknown;
 };
 
 export async function createClipSource(
@@ -513,6 +532,7 @@ export async function createClipSource(
     thumbnail,
     thumbnailUrl: normalizeHttpUrl(fields.thumbnailUrl),
     bucket: normalizeText(fields.bucket, 60).toLowerCase(),
+    score: normalizeScore(fields.score),
     clipped: fields.clipped === true,
     kind: fields.kind === "clip" ? "clip" : "source",
     parentId:
@@ -582,6 +602,9 @@ export async function updateClipSource(
   }
   if (fields.bucket !== undefined) {
     update.bucket = normalizeText(fields.bucket, 60).toLowerCase();
+  }
+  if (fields.score !== undefined) {
+    update.score = normalizeScore(fields.score);
   }
   if (fields.parentId !== undefined) {
     update.parentId =

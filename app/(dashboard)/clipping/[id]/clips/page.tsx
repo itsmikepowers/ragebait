@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScoreBadge } from "@/components/score-badge";
 import { buildCdnUrl } from "@/lib/cdn";
 
 type MediaRef = { path: string; width: number; height: number };
@@ -37,6 +38,7 @@ type ClipSource = {
   parentId: string;
   clipStart: number;
   transcript: string;
+  score: number;
 };
 
 function formatDuration(seconds: number): string {
@@ -300,6 +302,9 @@ export default function ClipsPage({
                           <LuPlay className="ml-0.5 size-4 fill-current" />
                         </span>
                       </span>
+                      <span className="absolute top-1.5 left-1.5">
+                        <ScoreBadge score={clip.score} />
+                      </span>
                       <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
                         {formatDuration(clip.durationSeconds)}
                       </span>
@@ -337,7 +342,12 @@ export default function ClipsPage({
             </div>
             <div className="flex min-w-0 flex-col gap-3">
               <DialogHeader className="pr-8">
-                <DialogTitle>{viewClip?.title ?? "Clip"}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  {viewClip?.score ? (
+                    <ScoreBadge score={viewClip.score} size="md" />
+                  ) : null}
+                  {viewClip?.title ?? "Clip"}
+                </DialogTitle>
                 <DialogDescription>
                   {viewClip
                     ? `${bucketLabel(viewClip.bucket || "other")} · starts at ${formatTimestamp(viewClip.clipStart)} · ${formatDuration(viewClip.durationSeconds)}`

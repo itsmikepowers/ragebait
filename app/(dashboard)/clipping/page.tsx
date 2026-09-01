@@ -54,6 +54,7 @@ type ClipSource = {
   clipStart: number;
   transcript: string;
   clipCount?: number;
+  score: number;
 };
 
 type ClipDraft = {
