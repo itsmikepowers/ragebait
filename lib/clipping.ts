@@ -613,8 +613,51 @@ export async function updateClipSource(
         ? fields.parentId
         : "";
   }
+  if (fields.durationSeconds !== undefined) {
+    update.durationSeconds = normalizeCount(fields.durationSeconds);
+  }
+  if (fields.sizeBytes !== undefined) {
+    update.sizeBytes = normalizeCount(fields.sizeBytes);
+  }
+  if (fields.thumbnailUrl !== undefined) {
+    update.thumbnailUrl = normalizeHttpUrl(fields.thumbnailUrl);
+  }
+  // Re-rendering a clip in a new style swaps its media in place. Validate the
+  // new objects the same way create does, so a bad path can never silently
+  // replace working media.
+  if (fields.video !== undefined) {
+    if (fields.video === null) {
+      update.video = null;
+    } else {
+      const parsed = parseRequiredMediaRef(fields.video, CLIPPING_PATH_RE);
+      if (!parsed) {
+        throw new ClippingError("Upload a video.", 400);
+      }
+      if (!(await r2ObjectExists(parsed.path))) {
+        throw new ClippingError("Could not upload that video.", 400);
+      }
+      update.video = parsed;
+    }
+  }
+  if (fields.thumbnail !== undefined) {
+    const thumbnail = parseOptionalMediaRef(
+      fields.thumbnail,
+      CLIPPING_THUMBNAIL_PATH_RE,
+    );
+    if (thumbnail === undefined) {
+      throw new ClippingError("Could not save that video's thumbnail.", 400);
+    }
+    if (thumbnail && !(await r2ObjectExists(thumbnail.path))) {
+      throw new ClippingError("Could not save that video's thumbnail.", 400);
+    }
+    update.thumbnail = thumbnail;
+  }
 
   const collection = await clippingCollection();
+  const previous = await collection.findOne({ _id: id });
+  if (!previous) {
+    throw new ClippingError("Clip source not found.", 404);
+  }
   const result = await collection.findOneAndUpdate(
     { _id: id },
     { $set: update },
@@ -623,6 +666,23 @@ export async function updateClipSource(
   if (!result) {
     throw new ClippingError("Clip source not found.", 404);
   }
+
+  // Drop the objects we just replaced so swapped-out renders don't accumulate
+  // in the bucket forever.
+  const stale = [
+    update.video !== undefined ? previous.video?.path : undefined,
+    update.thumbnail !== undefined ? previous.thumbnail?.path : undefined,
+  ].filter(
+    (path): path is string =>
+      typeof path === "string" &&
+      path.length > 0 &&
+      path !== update.video?.path &&
+      path !== update.thumbnail?.path,
+  );
+  for (const path of stale) {
+    await deleteFileFromCloudflare(path).catch(() => undefined);
+  }
+
   return toClipSource(result);
 }
 
