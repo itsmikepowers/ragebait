@@ -54,6 +54,7 @@ type ScheduledItemDoc = {
   firstComment?: string;
   instagramPostUrl?: string;
   posted: boolean;
+  postedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -270,15 +271,24 @@ export async function getTodaysPublicPost(
 
 export async function finalizeTodaysPublicPost(
   rawUsername: string,
+  instagramPostUrl?: unknown,
 ): Promise<{ status: "okay" | "already posted" }> {
   const { collection, doc } = await findNextDueScheduledDoc(rawUsername);
   if (doc.posted === true) {
     return { status: "already posted" };
   }
 
+  const url = normalizeInstagramPostUrl(instagramPostUrl);
   await collection.updateOne(
     { _id: doc._id },
-    { $set: { posted: true, updatedAt: new Date() } },
+    {
+      $set: {
+        posted: true,
+        postedAt: new Date(),
+        ...(url ? { instagramPostUrl: url } : {}),
+        updatedAt: new Date(),
+      },
+    },
   );
   return { status: "okay" };
 }
