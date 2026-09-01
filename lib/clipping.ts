@@ -66,11 +66,13 @@ const THUMBNAIL_FOLDER = "clipping-thumbnails";
 const VIDEO_MAX_BYTES = 16 * 1024 * 1024 * 1024;
 const THUMBNAIL_MAX_BYTES = 4 * 1024 * 1024;
 /**
- * 16 MB parts: large enough to stay well under R2's 10,000-part cap even for
- * a 16 GB master (~1,024 parts), but small enough that a single PUT body does
- * not stall/reset the connection the way 64 MB bodies did.
+ * 8 MB parts. Larger bodies (16 MB and 64 MB) reliably failed mid-transfer
+ * with TLS "bad record mac" / broken pipe on this upload path — the same URL
+ * accepts an 8 MB body fine, so the limit is body size, not the signed URL.
+ * 8 MB also stays above R2's 5 MB per-part minimum and keeps a 16 GB master
+ * (~2,048 parts) well under the 10,000-part cap.
  */
-const MULTIPART_PART_BYTES = 16 * 1024 * 1024;
+const MULTIPART_PART_BYTES = 8 * 1024 * 1024;
 /** Large uploads take far longer than the default 15m presign window. */
 const UPLOAD_URL_EXPIRES_SECONDS = 12 * 60 * 60;
 
