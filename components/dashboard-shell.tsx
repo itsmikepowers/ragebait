@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import {
   LuCalendar,
   LuHouse,
+  LuInbox,
   LuLayoutGrid,
   LuLightbulb,
   LuLogOut,
@@ -31,6 +32,7 @@ import { useAuth } from "@/lib/auth-context";
  */
 const userLinks = [
   { href: "/overview", label: "Overview", icon: LuLayoutGrid },
+  { href: "/clipping", label: "Clipping", icon: LuScissors },
   { href: "/account", label: "Account", icon: LuUser },
 ];
 
@@ -40,6 +42,7 @@ const adminLinks = [
   { href: "/admin/schedule", label: "Schedule", icon: LuCalendar },
   { href: "/admin/audio", label: "Audio", icon: LuMusic },
   { href: "/admin/clipping", label: "Clipping", icon: LuScissors },
+  { href: "/admin/queue", label: "Queue", icon: LuInbox },
   { href: "/admin/ideas/content", label: "Ideas", icon: LuLightbulb },
   { href: "/admin/users", label: "Users", icon: LuUser },
 ];
@@ -49,8 +52,14 @@ function isActive(pathname: string, href: string): boolean {
   if (href.startsWith("/admin/ideas")) {
     return pathname.startsWith("/admin/ideas");
   }
+  // Must stay exact-prefixed: "/clipping" and "/admin/clipping" are different
+  // pages (user queue vs the full library), and a bare `startsWith` on the
+  // former would light up both.
   if (href === "/admin/clipping") {
     return pathname.startsWith("/admin/clipping");
+  }
+  if (href === "/clipping") {
+    return pathname === "/clipping";
   }
   return pathname === href;
 }

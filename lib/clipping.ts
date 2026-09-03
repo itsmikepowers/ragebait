@@ -72,6 +72,11 @@ export type ClipSource = {
   ratedAt: string;
   /** Triage lane after review: "review" | "ready" | "archived". */
   reviewStatus: ClipReviewStatus;
+  /**
+   * Who this belongs to. Rows created before user submissions existed have ""
+   * and are treated as owner-owned; the backfill script stamps them.
+   */
+  userId: string;
 };
 
 export {
@@ -128,6 +133,7 @@ type ClipSourceDoc = {
   feedback?: string;
   ratedAt?: Date | null;
   reviewStatus?: string;
+  userId?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -354,6 +360,7 @@ function toClipSource(doc: ClipSourceDoc & { _id: ObjectId }): ClipSource {
     // Rows written before triage existed read as "needs review", which is
     // exactly right: nobody has filed them.
     reviewStatus: clipReviewStatus(doc.reviewStatus),
+    userId: doc.userId ?? "",
   };
 }
 
@@ -408,13 +415,28 @@ export async function getClipSource(rawId: string): Promise<ClipSource | null> {
   return doc ? toClipSource(doc) : null;
 }
 
-/** Clips cut from a given source, ordered by where they start in it. */
-export async function listClipsForSource(rawId: string): Promise<ClipSource[]> {
+/**
+ * Clips cut from a given source, ordered by where they start in it.
+ *
+ * `ownerId` null = admin (any source). Passing a user id additionally requires
+ * the PARENT source to belong to them, so a user can't read another user's
+ * clips by guessing a source id.
+ */
+export async function listClipsForSource(
+  rawId: string,
+  ownerId: string | null = null,
+): Promise<ClipSource[]> {
   const id = parseId(rawId);
   if (!id) {
     return [];
   }
   const collection = await clippingCollection();
+  if (ownerId !== null) {
+    const parent = await collection.findOne({ _id: id });
+    if (!parent || (parent.userId ?? "") !== ownerId) {
+      return [];
+    }
+  }
   const docs = await collection
     .find({ kind: "clip", parentId: id.toHexString() })
     .sort({ score: -1, clipStart: 1 })
@@ -591,6 +613,7 @@ type ClippingFields = {
   rating?: unknown;
   feedback?: unknown;
   reviewStatus?: unknown;
+  userId?: unknown;
 };
 
 export async function createClipSource(
@@ -655,6 +678,10 @@ export async function createClipSource(
     feedback: normalizeText(fields.feedback, FEEDBACK_MAX),
     ratedAt: null,
     reviewStatus: clipReviewStatus(fields.reviewStatus),
+    userId:
+      typeof fields.userId === "string" && /^[a-fA-F0-9]{24}$/.test(fields.userId)
+        ? fields.userId
+        : "",
     createdAt: now,
     updatedAt: now,
   };
@@ -736,6 +763,12 @@ export async function updateClipSource(
   }
   if (fields.reviewStatus !== undefined) {
     update.reviewStatus = clipReviewStatus(fields.reviewStatus);
+  }
+  if (fields.userId !== undefined) {
+    update.userId =
+      typeof fields.userId === "string" && /^[a-fA-F0-9]{24}$/.test(fields.userId)
+        ? fields.userId
+        : "";
   }
   if (fields.parentId !== undefined) {
     update.parentId =
