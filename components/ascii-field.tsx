@@ -167,8 +167,11 @@ export function AsciiField() {
 
     let last = 0;
     function loop(now: number) {
-      // ~34fps. ASCII reads as deliberate at this rate, and it halves the work.
-      if (now - last > 29) {
+      // ~48fps. Measured draw cost is 3.5-9.6ms depending on viewport, so this
+      // leaves headroom on the widest screens while staying smooth; uncapped
+      // rAF would just burn battery redrawing a texture nobody perceives at
+      // 120Hz.
+      if (now - last > 20) {
         draw(now);
         last = now;
       }
