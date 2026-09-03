@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AsciiField } from "@/components/ascii-field";
+import { Logo } from "@/components/logo";
 import { useAuth } from "@/lib/auth-context";
 
 /**
@@ -21,21 +22,15 @@ export default function LandingPage() {
 
       {/* Everything below sits above the canvas. */}
       <div className="relative flex flex-1 flex-col">
-        <header className="flex items-center justify-between px-6 py-6 md:px-10">
-          <span className="font-logo text-2xl lowercase leading-none">
-            ragebait
-          </span>
-          <Link
-            href="/docs"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Docs
+        <header className="flex items-center px-6 py-6 md:px-10">
+          <Link href="/" aria-label="ragebait">
+            <Logo priority />
           </Link>
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
-          <h1 className="font-logo text-[clamp(4rem,17vw,13rem)] lowercase leading-[0.82] tracking-tight">
-            ragebait
+          <h1 className="font-logo text-[clamp(3rem,13vw,10rem)] lowercase leading-[0.85] tracking-tight">
+            media + scale
           </h1>
 
           {/* Reserve the row's height while auth resolves so the CTA doesn't

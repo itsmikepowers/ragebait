@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AsciiField } from "@/components/ascii-field";
+import { Logo } from "@/components/logo";
 import { useAuth } from "@/lib/auth-context";
 
 /**
@@ -19,15 +20,9 @@ export default function NotFound() {
       <AsciiField />
 
       <div className="relative flex flex-1 flex-col">
-        <header className="flex items-center justify-between px-6 py-6 md:px-10">
-          <Link href="/" className="font-logo text-2xl lowercase leading-none">
-            ragebait
-          </Link>
-          <Link
-            href="/docs"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Docs
+        <header className="flex items-center px-6 py-6 md:px-10">
+          <Link href="/" aria-label="ragebait">
+            <Logo />
           </Link>
         </header>
 

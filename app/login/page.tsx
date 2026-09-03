@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { Logo } from "@/components/logo";
@@ -81,7 +82,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center px-6">
-      <Logo priority />
+      <Link href="/" aria-label="ragebait">
+        <Logo priority />
+      </Link>
 
       <div className="mt-10 flex w-full max-w-xs flex-col gap-3">
         <Button
