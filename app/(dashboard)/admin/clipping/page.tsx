@@ -925,7 +925,7 @@ export default function ClippingPage() {
                     <TableRow
                       key={source.id}
                       className="cursor-pointer"
-                      onClick={() => router.push(`/clipping/${source.id}/clips`)}
+                      onClick={() => router.push(`/admin/clipping/${source.id}/clips`)}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">

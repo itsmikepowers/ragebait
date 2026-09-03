@@ -29,8 +29,8 @@ function formatDate(iso: string): string {
 }
 
 /**
- * The only page a non-admin can reach. Deliberately plain: who you are, and a
- * way out. No product data, because a non-admin has no product access.
+ * Account details for any signed-in user. Reachable in user mode by everyone;
+ * admins get here through the same tab, since it's their account too.
  */
 export default function AccountPage() {
   const router = useRouter();
@@ -58,7 +58,6 @@ export default function AccountPage() {
           Your account doesn&apos;t have dashboard access yet.
         </p>
       ) : null}
-
       <Button
         type="button"
         variant="outline"

@@ -73,7 +73,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!authLoading && user && !user.isAdmin) {
-      router.replace("/account");
+      router.replace("/overview");
     }
   }, [user, authLoading, router]);
 

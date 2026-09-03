@@ -11,8 +11,8 @@ const VERTICALS = IDEA_VERTICALS.map((value) => ({
 }));
 
 const TABS = [
-  { href: "/ideas/content", label: "Content" },
-  { href: "/ideas/accounts", label: "Accounts" },
+  { href: "/admin/ideas/content", label: "Content" },
+  { href: "/admin/ideas/accounts", label: "Accounts" },
 ];
 
 function IdeasNav() {

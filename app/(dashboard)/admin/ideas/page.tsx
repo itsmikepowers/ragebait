@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function IdeasPage() {
-  redirect("/ideas/content");
+  redirect("/admin/ideas/content");
 }

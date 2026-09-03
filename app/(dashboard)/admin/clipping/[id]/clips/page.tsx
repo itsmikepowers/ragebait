@@ -192,7 +192,7 @@ export default function ClipsPage({
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
       <Link
-        href="/clipping"
+        href="/admin/clipping"
         className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <LuArrowLeft size={15} aria-hidden />

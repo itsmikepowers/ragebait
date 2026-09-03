@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!loading && firebaseUser) {
-      router.replace("/home");
+      router.replace("/overview");
     }
   }, [firebaseUser, loading, router]);
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
       } else {
         await login(email, password);
       }
-      router.replace("/home");
+      router.replace("/overview");
     } catch {
       setError(
         mode === "signup"
@@ -68,7 +68,7 @@ export default function LoginPage() {
     setBusy(true);
     try {
       await signInWithGoogle();
-      router.replace("/home");
+      router.replace("/overview");
     } catch {
       setError("Could not sign in with Google.");
     } finally {
