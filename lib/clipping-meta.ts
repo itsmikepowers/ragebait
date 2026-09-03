@@ -9,6 +9,10 @@
 export const CLIP_STYLES = [
   "tracked-karaoke",
   "letterbox-simple",
+  "letterbox-accent",
+  "letterbox-highlight",
+  "daddy-wellness",
+  "wide-band-karaoke",
   "blurred-fill",
 ] as const;
 
@@ -17,6 +21,10 @@ export type ClipStyle = (typeof CLIP_STYLES)[number];
 export const CLIP_STYLE_LABELS: Record<ClipStyle, string> = {
   "tracked-karaoke": "Tracked + karaoke",
   "letterbox-simple": "Letterbox + simple title",
+  "letterbox-accent": "Letterbox + accent title",
+  "letterbox-highlight": "Letterbox + highlighter title",
+  "daddy-wellness": "Daddy Wellness",
+  "wide-band-karaoke": "Wide band + karaoke",
   "blurred-fill": "Blurred fill",
 };
 
@@ -47,6 +55,30 @@ export const CLIP_STYLE_SPECS: Record<ClipStyle, ClipStyleSpec> = {
     font: "TikTok Sans 900 title / 800 captions",
     captions: "Static word-synced phrases in the bottom black bar, white",
     animation: "None — footage plays straight, no cuts and no motion",
+  },
+  "letterbox-accent": {
+    framing: "Full 16:9 frame zoomed out, hard black bars top and bottom",
+    font: "TikTok Sans 900 title / 800 captions",
+    captions: "Static word-synced phrases in the bottom black bar, white",
+    animation: "None — footage plays straight, no cuts and no motion",
+  },
+  "letterbox-highlight": {
+    framing: "Full 16:9 frame zoomed out, hard black bars top and bottom",
+    font: "Heavy condensed sans, uppercase",
+    captions: "Static word-synced phrases in the bottom black bar, white",
+    animation: "None — the title's yellow highlighter pill is the only accent",
+  },
+  "daddy-wellness": {
+    framing: "Hard black letterbox, video full-width edge to edge",
+    font: "Barlow Semi Condensed 700 with real bold-italic accents",
+    captions: "Static word-synced amber phrases low inside the video",
+    animation: "None — title persists the whole clip, captions cut in on the beat",
+  },
+  "wide-band-karaoke": {
+    framing: "Zoomed-out full 16:9 band on a dark canvas so graphics stay intact",
+    font: "Anton titles, karaoke captions",
+    captions: "Word-by-word karaoke with an accent colour on the active word",
+    animation: "Dead-space jump cuts, punch-in on cuts",
   },
   "blurred-fill": {
     framing: "Blurred, darkened copy of the frame behind a centred video band",
