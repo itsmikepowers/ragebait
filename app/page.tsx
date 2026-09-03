@@ -29,7 +29,7 @@ export default function LandingPage() {
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
-          <h1 className="font-logo text-[clamp(3rem,13vw,10rem)] lowercase leading-[0.85] tracking-tight">
+          <h1 className="font-logo text-[clamp(2rem,7vw,5rem)] lowercase leading-[0.9] tracking-tight text-muted-foreground">
             media + scale
           </h1>
 
