@@ -28,7 +28,7 @@ export default function NotFound() {
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
-          <h1 className="font-logo text-[clamp(6rem,22vw,16rem)] leading-[0.82] tracking-tight">
+          <h1 className="text-[clamp(4rem,15vw,11rem)] font-medium leading-[0.9] tracking-tight">
             404
           </h1>
 
