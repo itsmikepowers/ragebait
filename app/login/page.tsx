@@ -14,13 +14,11 @@ import { useAuth } from "@/lib/auth-context";
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { firebaseUser, loading, login, signup, signInWithGoogle, resetPassword } =
-    useAuth();
+  const { firebaseUser, loading, login, signup, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -32,7 +30,6 @@ export default function LoginPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setNotice("");
 
     if (!email || !password) {
       setError("Enter your email and password.");
@@ -64,7 +61,6 @@ export default function LoginPage() {
 
   async function onGoogle() {
     setError("");
-    setNotice("");
     setBusy(true);
     try {
       await signInWithGoogle();
@@ -73,21 +69,6 @@ export default function LoginPage() {
       setError("Could not sign in with Google.");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function onReset() {
-    setError("");
-    setNotice("");
-    if (!email) {
-      setError("Enter your email first.");
-      return;
-    }
-    try {
-      await resetPassword(email);
-      setNotice("Password reset email sent.");
-    } catch {
-      setError("Could not send a reset email.");
     }
   }
 
@@ -152,33 +133,19 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : notice ? (
-          <p className="text-sm text-muted-foreground">{notice}</p>
-        ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex justify-center text-xs text-muted-foreground">
           <button
             type="button"
             className="hover:text-foreground"
             onClick={() => {
               setMode(mode === "signup" ? "login" : "signup");
               setError("");
-              setNotice("");
             }}
           >
             {mode === "signup" ? "I have an account" : "Create an account"}
           </button>
-          {mode === "login" ? (
-            <button
-              type="button"
-              className="hover:text-foreground"
-              onClick={onReset}
-            >
-              Forgot password
-            </button>
-          ) : null}
         </div>
       </div>
     </div>
