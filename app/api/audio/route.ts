@@ -1,4 +1,5 @@
 import { AudioError, createAudioTrack, listAudioTracks } from "@/lib/audio";
+import { requireAdminResponse } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,12 @@ function errorResponse(error: unknown) {
   return Response.json({ error: "Could not reach the database." }, { status: 500 });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const tracks = await listAudioTracks();
     return Response.json({ tracks });
@@ -30,6 +36,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const body = await request.json();
     const track = await createAudioTrack(body ?? {});

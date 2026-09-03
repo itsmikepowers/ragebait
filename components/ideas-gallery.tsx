@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { apiFetch } from "@/lib/api-client";
 
 export type Idea = {
   id: string;
@@ -83,7 +84,7 @@ export function IdeasGallery({
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/ideas?kind=${kind}&vertical=${vertical}`,
       );
       const data = (await response.json()) as {
@@ -108,7 +109,7 @@ export function IdeasGallery({
   async function patchIdea(idea: Idea, body: Record<string, unknown>) {
     setSavingId(idea.id);
     try {
-      const response = await fetch(`/api/ideas/${idea.id}`, {
+      const response = await apiFetch(`/api/ideas/${idea.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -135,7 +136,7 @@ export function IdeasGallery({
   async function removeIdea(idea: Idea) {
     setSavingId(idea.id);
     try {
-      const response = await fetch(`/api/ideas/${idea.id}`, {
+      const response = await apiFetch(`/api/ideas/${idea.id}`, {
         method: "DELETE",
       });
       if (!response.ok) {

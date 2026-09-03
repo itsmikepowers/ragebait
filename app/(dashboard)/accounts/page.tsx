@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDashboardData, type Account } from "@/lib/dashboard-data";
+import { apiFetch } from "@/lib/api-client";
 
 type AccountLogo = {
   path: string;
@@ -90,7 +91,7 @@ async function uploadLogoToR2(file: File): Promise<AccountLogo> {
 
   const { width, height } = await readImageDimensions(file);
 
-  const planResponse = await fetch("/api/accounts/upload", {
+  const planResponse = await apiFetch("/api/accounts/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ size: file.size, contentType: file.type }),
@@ -274,7 +275,7 @@ export default function AccountsPage() {
   async function onAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const response = await fetch("/api/accounts", {
+    const response = await apiFetch("/api/accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -301,7 +302,7 @@ export default function AccountsPage() {
       return;
     }
     setError("");
-    const response = await fetch(`/api/accounts/${editAccount.id}`, {
+    const response = await apiFetch(`/api/accounts/${editAccount.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -330,7 +331,7 @@ export default function AccountsPage() {
       return;
     }
     setError("");
-    const response = await fetch(`/api/accounts/${removeAccount.id}`, {
+    const response = await apiFetch(`/api/accounts/${removeAccount.id}`, {
       method: "DELETE",
     });
     const data = (await response.json()) as { error?: string };

@@ -1,4 +1,5 @@
 import { ScheduleError, deleteScheduledItem, updateScheduledItem } from "@/lib/schedule";
+import { requireAdminResponse } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,11 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<"/api/schedule/[id]">,
 ) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const { id } = await ctx.params;
     const body = await request.json();
@@ -42,9 +48,14 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   ctx: RouteContext<"/api/schedule/[id]">,
 ) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const { id } = await ctx.params;
     await deleteScheduledItem(id);

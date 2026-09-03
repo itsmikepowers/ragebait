@@ -40,6 +40,7 @@ import {
   type Account,
   type ScheduledItem as SharedScheduledItem,
 } from "@/lib/dashboard-data";
+import { apiFetch } from "@/lib/api-client";
 
 type AccountLogo = {
   path: string;
@@ -237,7 +238,7 @@ async function uploadThumbnail(
   width: number,
   height: number,
 ): Promise<ScheduledThumbnail> {
-  const planResponse = await fetch("/api/schedule/thumbnail", {
+  const planResponse = await apiFetch("/api/schedule/thumbnail", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ size: blob.size, contentType: "image/jpeg" }),
@@ -262,7 +263,7 @@ async function uploadFileToR2(
   const thumbnailPromise = captureFirstFrame(file)
     .then(({ blob, width, height }) => uploadThumbnail(blob, width, height))
     .catch(() => null);
-  const uploadResponse = await fetch("/api/schedule/upload", {
+  const uploadResponse = await apiFetch("/api/schedule/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -298,7 +299,7 @@ async function uploadFileToR2(
           return { partNumber: part.partNumber, etag };
         },
       );
-      const completeResponse = await fetch("/api/schedule/upload/complete", {
+      const completeResponse = await apiFetch("/api/schedule/upload/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -318,7 +319,7 @@ async function uploadFileToR2(
       const thumbnail = await thumbnailPromise;
       return { video: { path: completeData.path, width, height }, thumbnail };
     } catch (error) {
-      await fetch("/api/schedule/upload/abort", {
+      await apiFetch("/api/schedule/upload/abort", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: plan.path, uploadId: plan.uploadId }),
@@ -651,7 +652,7 @@ export default function SchedulePage() {
     setUploadPercent(0);
     try {
       const { video, thumbnail } = await uploadFileToR2(draft.file, setUploadPercent);
-      const response = await fetch("/api/schedule", {
+      const response = await apiFetch("/api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -699,7 +700,7 @@ export default function SchedulePage() {
     }
     setSaving(true);
     try {
-      const response = await fetch(`/api/schedule/${editItem.id}`, {
+      const response = await apiFetch(`/api/schedule/${editItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -736,7 +737,7 @@ export default function SchedulePage() {
       return;
     }
     setError("");
-    const response = await fetch(`/api/schedule/${removeItem.id}`, {
+    const response = await apiFetch(`/api/schedule/${removeItem.id}`, {
       method: "DELETE",
     });
     const data = (await response.json()) as { error?: string };

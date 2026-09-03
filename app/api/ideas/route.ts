@@ -6,6 +6,7 @@ import {
   type IdeaKind,
   type IdeaVertical,
 } from "@/lib/ideas";
+import { requireAdminResponse } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,11 @@ function errorResponse(error: unknown) {
 }
 
 export async function GET(request: Request) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const params = new URL(request.url).searchParams;
     const kindParam = params.get("kind");
@@ -37,6 +43,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const body = await request.json();
     const idea = await createIdea(body ?? {});

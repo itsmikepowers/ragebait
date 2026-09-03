@@ -29,6 +29,7 @@ import {
   type ClipStyle,
 } from "@/lib/clipping-meta";
 import { buildCdnUrl } from "@/lib/cdn";
+import { apiFetch } from "@/lib/api-client";
 
 type MediaRef = { path: string; width: number; height: number };
 
@@ -138,7 +139,7 @@ export default function ClipsPage({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/clipping/${id}/clips`);
+      const response = await apiFetch(`/api/clipping/${id}/clips`);
       const data = (await response.json()) as {
         source?: ClipSource;
         clips?: ClipSource[];

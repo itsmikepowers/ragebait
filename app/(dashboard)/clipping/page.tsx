@@ -27,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { MediaThumb } from "@/components/media-thumb";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 
 type MediaRef = {
   path: string;
@@ -310,7 +311,7 @@ async function uploadThumbnail(
   width: number,
   height: number,
 ): Promise<MediaRef> {
-  const planResponse = await fetch("/api/clipping/thumbnail", {
+  const planResponse = await apiFetch("/api/clipping/thumbnail", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ size: blob.size, contentType: "image/jpeg" }),
@@ -347,7 +348,7 @@ async function uploadVideoToR2(
     .then(({ blob, width, height }) => uploadThumbnail(blob, width, height))
     .catch(() => null);
 
-  const planResponse = await fetch("/api/clipping/upload", {
+  const planResponse = await apiFetch("/api/clipping/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ size: file.size, contentType }),
@@ -383,7 +384,7 @@ async function uploadVideoToR2(
           return { partNumber: part.partNumber, etag };
         },
       );
-      const completeResponse = await fetch("/api/clipping/upload/complete", {
+      const completeResponse = await apiFetch("/api/clipping/upload/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -411,7 +412,7 @@ async function uploadVideoToR2(
         duration: meta.duration,
       };
     } catch (error) {
-      await fetch("/api/clipping/upload/abort", {
+      await apiFetch("/api/clipping/upload/abort", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: plan.path, uploadId: plan.uploadId }),
@@ -620,7 +621,7 @@ export default function ClippingPage() {
   const loadSources = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/clipping");
+      const response = await apiFetch("/api/clipping");
       const data = (await response.json()) as {
         sources?: ClipSource[];
         error?: string;
@@ -690,7 +691,7 @@ export default function ClippingPage() {
         contentType,
         setUploadPercent,
       );
-      const response = await fetch("/api/clipping", {
+      const response = await apiFetch("/api/clipping", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -738,7 +739,7 @@ export default function ClippingPage() {
     }
     setSaving(true);
     try {
-      const response = await fetch(`/api/clipping/${editSource.id}`, {
+      const response = await apiFetch(`/api/clipping/${editSource.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -780,7 +781,7 @@ export default function ClippingPage() {
       return;
     }
     setError("");
-    const response = await fetch(`/api/clipping/${removeSource.id}`, {
+    const response = await apiFetch(`/api/clipping/${removeSource.id}`, {
       method: "DELETE",
     });
     const data = (await response.json()) as { error?: string };

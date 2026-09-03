@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { apiFetch } from "@/lib/api-client";
 
 export type MediaRef = {
   path: string;
@@ -104,7 +105,7 @@ export function DashboardDataProvider({
   children: React.ReactNode;
 }) {
   const fetchAccounts = useCallback(async () => {
-    const response = await fetch("/api/accounts");
+    const response = await apiFetch("/api/accounts");
     const data = (await response.json()) as {
       accounts?: Account[];
       error?: string;
@@ -116,7 +117,7 @@ export function DashboardDataProvider({
   }, []);
 
   const fetchSchedule = useCallback(async () => {
-    const response = await fetch("/api/schedule");
+    const response = await apiFetch("/api/schedule");
     const data = (await response.json()) as {
       items?: ScheduledItem[];
       error?: string;
@@ -128,7 +129,7 @@ export function DashboardDataProvider({
   }, []);
 
   const fetchHome = useCallback(async () => {
-    const response = await fetch("/api/home");
+    const response = await apiFetch("/api/home");
     const data = (await response.json()) as {
       accounts?: number;
       error?: string;

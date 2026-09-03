@@ -12,6 +12,7 @@ import {
   type ClipRating,
   type ClipReviewStatus,
 } from "@/lib/clipping-meta";
+import { apiFetch } from "@/lib/api-client";
 
 /**
  * Owner review for a clip: a 1-5 "would I post this" picker plus free-text
@@ -137,7 +138,7 @@ export function ClipReview({
     }) => {
       setState("saving");
       try {
-        const response = await fetch(`/api/clipping/${clipId}`, {
+        const response = await apiFetch(`/api/clipping/${clipId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -206,7 +207,7 @@ export function ClipReview({
       if (timer.current) {
         clearTimeout(timer.current);
         if (localFeedback !== savedFeedback.current) {
-          fetch(`/api/clipping/${clipId}`, {
+          apiFetch(`/api/clipping/${clipId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ feedback: localFeedback }),

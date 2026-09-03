@@ -26,6 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildCdnUrl } from "@/lib/cdn";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 
 type AudioFile = {
   path: string;
@@ -218,7 +219,7 @@ async function uploadAudioToR2(
   contentType: string,
   onProgress: (percent: number) => void,
 ): Promise<AudioFile> {
-  const planResponse = await fetch("/api/audio/upload", {
+  const planResponse = await apiFetch("/api/audio/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ size: file.size, contentType }),
@@ -421,7 +422,7 @@ export default function AudioPage() {
   const loadTracks = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/audio");
+      const response = await apiFetch("/api/audio");
       const data = (await response.json()) as {
         tracks?: AudioTrack[];
         error?: string;
@@ -492,7 +493,7 @@ export default function AudioPage() {
         setUploadPercent,
       );
       const durationSeconds = await durationPromise;
-      const response = await fetch("/api/audio", {
+      const response = await apiFetch("/api/audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -538,7 +539,7 @@ export default function AudioPage() {
     }
     setSaving(true);
     try {
-      const response = await fetch(`/api/audio/${editTrack.id}`, {
+      const response = await apiFetch(`/api/audio/${editTrack.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -580,7 +581,7 @@ export default function AudioPage() {
       return;
     }
     setError("");
-    const response = await fetch(`/api/audio/${removeTrack.id}`, {
+    const response = await apiFetch(`/api/audio/${removeTrack.id}`, {
       method: "DELETE",
     });
     const data = (await response.json()) as { error?: string };

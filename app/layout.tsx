@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Huninn, Jersey_10 } from "next/font/google";
+import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 const huninn = Huninn({
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${huninn.variable} ${jersey.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background font-sans font-normal text-foreground">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

@@ -1,4 +1,5 @@
 import { ClippingError, completeClippingUpload } from "@/lib/clipping";
+import { requireAdminResponse } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,11 @@ function errorResponse(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdminResponse(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
     const body = await request.json();
     const result = await completeClippingUpload(
