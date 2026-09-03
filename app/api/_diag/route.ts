@@ -12,7 +12,6 @@ export async function GET() {
     commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
     env: process.env.VERCEL_ENV ?? "local",
     node: process.version,
-    runtime: typeof EdgeRuntime === "undefined" ? "nodejs" : "edge",
   };
 
   for (const key of [
