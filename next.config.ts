@@ -13,6 +13,14 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   distDir: process.env.VERCEL ? ".next" : ".next.nosync",
+  /**
+   * firebase-admin does dynamic `require`s and ships optional native deps, so
+   * bundling it produces a function that throws at import time on Vercel —
+   * every route importing it returned an empty 500 while the poster routes
+   * (which don't import it) were fine. Leaving it external makes Node resolve
+   * it from node_modules at runtime instead.
+   */
+  serverExternalPackages: ["firebase-admin"],
 };
 
 export default nextConfig;
