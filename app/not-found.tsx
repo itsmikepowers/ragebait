@@ -20,7 +20,8 @@ export default function NotFound() {
       <AsciiField />
 
       <div className="relative flex flex-1 flex-col">
-        <header className="flex items-center px-6 py-6 md:px-10">
+        {/* Same inset as the dashboard sidebar, so the mark doesn't shift. */}
+        <header className="flex items-center px-5 py-6">
           <Link href="/" aria-label="ragebait">
             <Logo />
           </Link>

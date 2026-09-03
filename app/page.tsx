@@ -22,7 +22,9 @@ export default function LandingPage() {
 
       {/* Everything below sits above the canvas. */}
       <div className="relative flex flex-1 flex-col">
-        <header className="flex items-center px-6 py-6 md:px-10">
+        {/* Inset matches the dashboard sidebar (px-5 py-6) so the mark sits in
+            exactly the same spot when you cross from marketing into the app. */}
+        <header className="flex items-center px-5 py-6">
           <Link href="/" aria-label="ragebait">
             <Logo priority />
           </Link>
