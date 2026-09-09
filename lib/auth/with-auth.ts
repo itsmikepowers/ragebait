@@ -6,6 +6,7 @@
  * withAdmin(...)` — so a new route can't quietly ship unguarded the way all 22
  * of the pre-Firebase routes did.
  */
+import { timingSafeEqual } from "crypto";
 import { UserError, type AppUser } from "@/lib/users";
 import {
   requireAdmin,
@@ -23,7 +24,7 @@ type Handler<P> = (
   ctx: AuthedContext<P>,
 ) => Promise<Response> | Response;
 
-type RouteCtx<P> = { params: Promise<P> | P };
+type RouteCtx<P> = { params: Promise<P> };
 
 /** Turns thrown errors into JSON, preserving UserError's status. */
 export function errorResponse(error: unknown): Response {
@@ -58,7 +59,7 @@ function guarded<P>(
   check: (authHeader: string | null) => Promise<AppUser>,
   handler: Handler<P>,
 ) {
-  return async (request: Request, routeCtx?: RouteCtx<P>) => {
+  return async (request: Request, routeCtx: RouteCtx<P>) => {
     try {
       const user = await check(request.headers.get("Authorization"));
       return await handler(request, {
@@ -95,6 +96,32 @@ export async function requireAdminResponse(
   } catch (error) {
     return errorResponse(error);
   }
+}
+
+/**
+ * Lets the private iPhone studio call the small set of media/schedule routes it
+ * needs without embedding a Firebase session. The separate key is deliberately
+ * not accepted by the rest of the admin API.
+ */
+export async function requireAdminOrMobileResponse(
+  request: Request,
+): Promise<Response | null> {
+  const expected = process.env.MOBILE_API_KEY?.trim() ?? "";
+  const header = request.headers.get("Authorization") ?? "";
+  const supplied = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+
+  if (expected && supplied) {
+    const expectedBytes = Buffer.from(expected);
+    const suppliedBytes = Buffer.from(supplied);
+    if (
+      expectedBytes.length === suppliedBytes.length &&
+      timingSafeEqual(expectedBytes, suppliedBytes)
+    ) {
+      return null;
+    }
+  }
+
+  return requireAdminResponse(request);
 }
 
 /** Signed in AND on the admin allow-list. This guards every dashboard tab. */
